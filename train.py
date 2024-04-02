@@ -421,7 +421,7 @@ def train_and_evaluate(
           step + 1, {f'eval_{key}': val for key, val in summary.items()}
       )
       writer.flush()
-    if (step + 1) % steps_per_checkpoint == 0 or step + 1 == num_steps:
+    if (step + 1) % steps_per_checkpoint == 0 or step + 1 == num_steps or step == 0:
       state = sync_batch_stats(state)
       save_checkpoint(state, workdir)
 

@@ -28,6 +28,9 @@ import tensorflow as tf
 
 import train
 
+import warnings
+warnings.filterwarnings("ignore")
+
 
 FLAGS = flags.FLAGS
 
