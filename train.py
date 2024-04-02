@@ -423,6 +423,7 @@ def train_and_evaluate(
       writer.flush()
     if (step + 1) % steps_per_checkpoint == 0 or step + 1 == num_steps or step == 0:
       state = sync_batch_stats(state)
+      # TODO{km}: suppress the annoying warning.
       save_checkpoint(state, workdir)
 
   # Wait until computations are done before exiting
