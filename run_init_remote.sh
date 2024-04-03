@@ -10,6 +10,9 @@ ZONE=us-central2-b  # v4
 gcloud compute tpus tpu-vm ssh $VM_NAME --zone $ZONE \
 --worker=all --command "
 
+sudo apt-get -y update
+sudo apt-get -y install nfs-common
+
 pip3 install absl-py==1.4.0
 pip3 install clu==0.0.11
 pip3 install flax==0.8.1
@@ -32,8 +35,14 @@ gcloud compute tpus tpu-vm ssh $VM_NAME --zone $ZONE \
 SHARED_FS=10.11.37.106:/kmh_nfs
 MOUNT_POINT=/kmh-nfs-mount
 
-sudo apt-get -y update
-sudo apt-get -y install nfs-common
+sudo mkdir -p \$MOUNT_POINT
+sudo mount \$SHARED_FS \$MOUNT_POINT
+sudo chmod go+rw \$MOUNT_POINT
+
+ls \$MOUNT_POINT
+
+SHARED_FS=10.26.72.146:/kmh_nfs_us
+MOUNT_POINT=/kmh-nfs-us-mount
 
 sudo mkdir -p \$MOUNT_POINT
 sudo mount \$SHARED_FS \$MOUNT_POINT
