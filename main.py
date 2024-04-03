@@ -26,8 +26,6 @@ import jax
 from ml_collections import config_flags
 import tensorflow as tf
 
-import train
-
 import warnings
 warnings.filterwarnings("ignore")
 
@@ -41,11 +39,18 @@ config_flags.DEFINE_config_file(
     'File path to the training hyperparameter configuration.',
     lock_config=True,
 )
-
+flags.DEFINE_string('dataloader', 'tsdf', 'Dataloading method.')
 
 def main(argv):
   if len(argv) > 1:
     raise app.UsageError('Too many command-line arguments.')
+
+  if FLAGS.dataloader == 'tsdf':
+    import train
+  elif FLAGS.dataloader == 'torch':
+    import train_torchloader as train
+  else:
+    raise NotImplementedError('Dataloading method not implemented.')
 
   # Hide any GPUs from TensorFlow. Otherwise TF might reserve memory and make
   # it unavailable to JAX.
