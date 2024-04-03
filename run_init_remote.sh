@@ -32,21 +32,13 @@ python3 -c 'import jax; print(jax.device_count())'
 gcloud compute tpus tpu-vm ssh $VM_NAME --zone $ZONE \
 --worker=all --command "
 
-SHARED_FS=10.11.37.106:/kmh_nfs
-MOUNT_POINT=/kmh-nfs-mount
+sudo mkdir -p /kmh-nfs-mount
+sudo mount -o vers=3 10.11.37.106:/kmh_nfs /kmh-nfs-mount
+sudo chmod go+rw /kmh-nfs-mount
+ls /kmh-nfs-mount
 
-sudo mkdir -p \$MOUNT_POINT
-sudo mount \$SHARED_FS \$MOUNT_POINT
-sudo chmod go+rw \$MOUNT_POINT
-
-ls \$MOUNT_POINT
-
-SHARED_FS=10.26.72.146:/kmh_nfs_us
-MOUNT_POINT=/kmh-nfs-us-mount
-
-sudo mkdir -p \$MOUNT_POINT
-sudo mount \$SHARED_FS \$MOUNT_POINT
-sudo chmod go+rw \$MOUNT_POINT
-
-ls \$MOUNT_POINT
+sudo mkdir -p /kmh-nfs-us-mount
+sudo mount -o vers=3 10.26.72.146:/kmh_nfs_us /kmh-nfs-us-mount
+sudo chmod go+rw /kmh-nfs-us-mount
+ls /kmh-nfs-us-mount
 "
