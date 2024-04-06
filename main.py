@@ -18,6 +18,7 @@ This file is intentionally kept short. The majority for logic is in libraries
 that can be easily tested and imported in Colab.
 """
 
+import os
 from absl import app
 from absl import flags
 from absl import logging
@@ -26,6 +27,8 @@ import jax
 from ml_collections import config_flags
 import tensorflow as tf
 
+import train
+
 import warnings
 warnings.filterwarnings("ignore")
 
@@ -33,24 +36,17 @@ warnings.filterwarnings("ignore")
 FLAGS = flags.FLAGS
 
 flags.DEFINE_string('workdir', None, 'Directory to store model data.')
+flags.DEFINE_bool('debug', False, 'Debugging mode.')
 config_flags.DEFINE_config_file(
     'config',
     None,
     'File path to the training hyperparameter configuration.',
     lock_config=True,
 )
-flags.DEFINE_string('dataloader', 'tsdf', 'Dataloading method.')
 
 def main(argv):
   if len(argv) > 1:
     raise app.UsageError('Too many command-line arguments.')
-
-  if FLAGS.dataloader == 'tsdf':
-    import train
-  elif FLAGS.dataloader == 'torch':
-    import train_torchloader as train
-  else:
-    raise NotImplementedError('Dataloading method not implemented.')
 
   # Hide any GPUs from TensorFlow. Otherwise TF might reserve memory and make
   # it unavailable to JAX.
@@ -69,7 +65,11 @@ def main(argv):
       platform.ArtifactType.DIRECTORY, FLAGS.workdir, 'workdir'
   )
 
-  train.train_and_evaluate(FLAGS.config, FLAGS.workdir)
+  if FLAGS.debug:
+    with jax.disable_jit():
+      train.train_and_evaluate(FLAGS.config, FLAGS.workdir)
+  else:
+    train.train_and_evaluate(FLAGS.config, FLAGS.workdir)
 
 
 if __name__ == '__main__':

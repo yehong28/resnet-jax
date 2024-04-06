@@ -34,11 +34,15 @@ def get_config():
   """Get the default hyperparameter configuration."""
   config = ml_collections.ConfigDict()
 
-  # As defined in the `models` module.
+  # Model
   config.model = 'ResNet50'
-  # `name` argument of tensorflow_datasets.builder()
-  config.dataset = 'imagenet2012:5.*.*'
 
+  # Dataset
+  config.dataset = dataset = ml_collections.ConfigDict()
+  dataset.name = 'imagenet'
+  dataset.root = '/kmh-nfs-us-mount/data/imagenet'
+
+  # Training
   config.learning_rate = 0.1
   config.warmup_epochs = 5.0
   config.momentum = 0.9

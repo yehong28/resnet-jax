@@ -36,8 +36,7 @@ import jax.numpy as jnp
 from jax import random
 import ml_collections
 import optax
-import tensorflow as tf
-import tensorflow_datasets as tfds
+import torch
 
 import input_pipeline
 import models
@@ -175,46 +174,6 @@ def eval_step(state, batch):
   return compute_metrics(logits, batch['label'])
 
 
-def prepare_tf_data(xs):
-  """Convert a input batch from tf Tensors to numpy arrays."""
-  local_device_count = jax.local_device_count()
-
-  def _prepare(x):
-    # Use _numpy() for zero-copy conversion between TF and NumPy.
-    x = x._numpy()  # pylint: disable=protected-access
-
-    # reshape (host_batch_size, height, width, 3) to
-    # (local_devices, device_batch_size, height, width, 3)
-    return x.reshape((local_device_count, -1) + x.shape[1:])
-
-  return jax.tree_util.tree_map(_prepare, xs)
-
-
-def create_input_iter(
-    dataset_builder,
-    batch_size,
-    image_size,
-    dtype,
-    train,
-    cache,
-    shuffle_buffer_size,
-    prefetch,
-):
-  ds = input_pipeline.create_split(
-      dataset_builder,
-      batch_size,
-      image_size=image_size,
-      dtype=dtype,
-      train=train,
-      cache=cache,
-      shuffle_buffer_size=shuffle_buffer_size,
-      prefetch=prefetch,
-  )
-  it = map(prepare_tf_data, ds)
-  it = jax_utils.prefetch_to_device(it, 2)
-  return it
-
-
 class TrainState(train_state.TrainState):
   batch_stats: Any
   dynamic_scale: dynamic_scale_lib.DynamicScale
@@ -299,37 +258,27 @@ def train_and_evaluate(
 
   if config.half_precision:
     if platform == 'tpu':
-      input_dtype = tf.bfloat16
+      input_dtype = torch.bfloat16
+      #input_dtype = torch.float16
     else:
-      input_dtype = tf.float16
+      input_dtype = torch.float16
   else:
-    input_dtype = tf.float32
+    input_dtype = torch.float32
 
-  dataset_builder = tfds.builder(config.dataset)
-  train_iter = create_input_iter(
-      dataset_builder,
-      local_batch_size,
-      image_size,
-      input_dtype,
-      train=True,
-      cache=config.cache,
-      shuffle_buffer_size=config.shuffle_buffer_size,
-      prefetch=config.prefetch,
+  train_dataset = input_pipeline.create_split(
+    config.dataset,
+    local_batch_size,
+    split='train',
+    input_dtype=input_dtype,
   )
-  eval_iter = create_input_iter(
-      dataset_builder,
-      local_batch_size,
-      image_size,
-      input_dtype,
-      train=False,
-      cache=config.cache,
-      shuffle_buffer_size=None,
-      prefetch=config.prefetch,
+  eval_dataset = input_pipeline.create_split(
+    config.dataset,
+    local_batch_size,
+    split='val',
+    input_dtype=input_dtype,
   )
 
-  steps_per_epoch = (
-      dataset_builder.info.splits['train'].num_examples // config.batch_size
-  )
+  steps_per_epoch = 2 #(len(train_dataset) // config.batch_size)
 
   if config.num_train_steps <= 0:
     num_steps = int(steps_per_epoch * config.num_epochs)
@@ -337,9 +286,7 @@ def train_and_evaluate(
     num_steps = config.num_train_steps
 
   if config.steps_per_eval == -1:
-    num_validation_examples = dataset_builder.info.splits[
-        'validation'
-    ].num_examples
+    num_validation_examples = config.batch_size # len(eval_dataset)
     steps_per_eval = num_validation_examples // config.batch_size
   else:
     steps_per_eval = config.steps_per_eval
@@ -375,7 +322,7 @@ def train_and_evaluate(
     hooks += [periodic_actions.Profile(num_profile_steps=5, logdir=workdir)]
   train_metrics_last_t = time.time()
   logging.info('Initial compilation, this might take some minutes...')
-  for step, batch in zip(range(step_offset, num_steps), train_iter):
+  for step, batch in zip(range(step_offset, num_steps), train_dataset):
     state, metrics = p_train_step(state, batch)
     for h in hooks:
       h(step)
@@ -406,7 +353,7 @@ def train_and_evaluate(
       # sync batch statistics across replicas
       state = sync_batch_stats(state)
       for _ in range(steps_per_eval):
-        eval_batch = next(eval_iter)
+        eval_batch = next(eval_dataset)
         metrics = p_eval_step(state, eval_batch)
         eval_metrics.append(metrics)
       eval_metrics = common_utils.get_metrics(eval_metrics)

@@ -1,3 +1,22 @@
+## Jax training with PyTorch dataloaders
+
+### Notes
+- `flax.jax_utils.prefetch_to_device()` not necessary for TPU and CPU
+- For debugging, use the flag `--debug=True` to call `with jax.disable_jit():` which disables jax compilation. Be careful, this may increase memory consumption
+- bfloat16 datatype not support for numpy (without the Tensorflow extension `RegisterNumpyBfloat16`?). Directly convert torch tensors to jnp arrays: https://github.com/samuela/torch2jax/blob/bd7bd9c95253c89ffb7a25cc0ff2ccb296f6cfbf/torch2jax/__init__.py#L12
+
+### Packages
+- torch, torchvision
+- [2024.4] ml_collections not working with Python>=3.12 (imp deprecated): https://github.com/google/ml_collections/pull/28. To fix this problem, install ml_collections from:
+  ```
+  pip install git+https://github.com/danielkelshaw/ml_collections.git
+  ```
+
+### TODOs:
+- Add outer training loop with epochs (note: not to call len(dataset)). Remove the fake `steps_per_epoch` and `steps_per_eval`
+- Clean up TSDF data loading code
+- Restructure configs
+
 ## ImageNet classification
 
 Trains a ResNet50 model ([He *et al.*, 2016]) for the ImageNet classification task
