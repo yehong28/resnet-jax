@@ -8,5 +8,5 @@ PWD=$(pwd)
 # export TFDS_DATA_DIR='gs://kmh-gcp-us-central2/tensorflow_datasets'
 python3 main.py \
     --workdir=${PWD}/tmp --config=configs/tpu.py \
-    --config.cache=True \
+    --config.dataset.cache=True \
     --config.batch_size=1024

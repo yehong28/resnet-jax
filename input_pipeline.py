@@ -80,6 +80,7 @@ def create_split(
   ]))
 
   ds = DataLoader(ds, batch_size=batch_size, shuffle=True, drop_last=True)
+  steps_per_epoch = len(ds)
   ds = map(prepare_batch_data, ds)
 
-  return ds
+  return ds, steps_per_epoch

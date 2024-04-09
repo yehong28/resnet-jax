@@ -41,25 +41,27 @@ def get_config():
   config.dataset = dataset = ml_collections.ConfigDict()
   dataset.name = 'imagenet'
   dataset.root = '/kmh-nfs-us-mount/data/imagenet'
+  dataset.cache = False
 
   # Training
   config.learning_rate = 0.1
-  config.warmup_epochs = 5.0
+  config.warmup_epochs = 5
   config.momentum = 0.9
   config.batch_size = 128
   config.shuffle_buffer_size = 16 * 128
   config.prefetch = 10
 
-  config.num_epochs = 100.0
-  config.log_every_steps = 100
+  config.num_epochs = 100
+  config.log_per_step = 10
+  config.log_per_epoch = -1
+  config.eval_per_epoch = 1
+  config.checkpoint_per_epoch = 1
 
-  config.cache = False
+  config.steps_per_eval = -1
+
+  
   config.half_precision = False
 
-  # If num_train_steps==-1 then the number of training steps is calculated from
-  # num_epochs using the entire dataset. Similarly for steps_per_eval.
-  config.num_train_steps = -1
-  config.steps_per_eval = -1
   return config
 
 

@@ -265,33 +265,21 @@ def train_and_evaluate(
   else:
     input_dtype = torch.float32
 
-  train_dataset = input_pipeline.create_split(
+  train_dataset, steps_per_epoch = input_pipeline.create_split(
     config.dataset,
     local_batch_size,
     split='train',
     input_dtype=input_dtype,
   )
-  eval_dataset = input_pipeline.create_split(
+  eval_dataset, steps_per_eval = input_pipeline.create_split(
     config.dataset,
     local_batch_size,
     split='val',
     input_dtype=input_dtype,
   )
 
-  steps_per_epoch = 2 #(len(train_dataset) // config.batch_size)
-
-  if config.num_train_steps <= 0:
-    num_steps = int(steps_per_epoch * config.num_epochs)
-  else:
-    num_steps = config.num_train_steps
-
-  if config.steps_per_eval == -1:
-    num_validation_examples = config.batch_size # len(eval_dataset)
-    steps_per_eval = num_validation_examples // config.batch_size
-  else:
+  if config.steps_per_eval != -1:
     steps_per_eval = config.steps_per_eval
-
-  steps_per_checkpoint = steps_per_epoch * 10
 
   base_learning_rate = config.learning_rate * config.batch_size / 256.0
 
@@ -300,9 +288,7 @@ def train_and_evaluate(
       model_cls=model_cls, half_precision=config.half_precision
   )
 
-  learning_rate_fn = create_learning_rate_fn(
-      config, base_learning_rate, steps_per_epoch
-  )
+  learning_rate_fn = create_learning_rate_fn(config, base_learning_rate, steps_per_epoch)
 
   state = create_train_state(rng, config, model, image_size, learning_rate_fn)
   state = restore_checkpoint(state, workdir)
@@ -322,16 +308,20 @@ def train_and_evaluate(
     hooks += [periodic_actions.Profile(num_profile_steps=5, logdir=workdir)]
   train_metrics_last_t = time.time()
   logging.info('Initial compilation, this might take some minutes...')
-  for step, batch in zip(range(step_offset, num_steps), train_dataset):
-    state, metrics = p_train_step(state, batch)
-    for h in hooks:
-      h(step)
-    if step == step_offset:
-      logging.info('Initial compilation completed.')
-
-    if config.get('log_every_steps'):
+  for epoch in range(config.num_epochs + 1):
+    for n_batch, batch in enumerate(train_dataset):
+      step = epoch * steps_per_epoch + n_batch + step_offset
+      state, metrics = p_train_step(state, batch)
+      for h in hooks:
+        h(step)
+      if step == step_offset:
+        logging.info('Initial compilation completed.')
       train_metrics.append(metrics)
-      if (step + 1) % config.log_every_steps == 0:
+      
+      if (
+        config.log_per_step > -1 and
+        (step + 1) % config.log_per_step == 0 or step == 0
+      ):
         train_metrics = common_utils.get_metrics(train_metrics)
         summary = {
             f'train_{k}': v
@@ -339,21 +329,36 @@ def train_and_evaluate(
                 lambda x: x.mean(), train_metrics
             ).items()
         }
-        summary['steps_per_second'] = config.log_every_steps / (
-            time.time() - train_metrics_last_t
-        )
+        n_steps = config.log_per_step if step > 0 else 1
+        summary['seconds_per_step'] = (time.time() - train_metrics_last_t) / n_steps
         writer.write_scalars(step + 1, summary)
         train_metrics = []
         train_metrics_last_t = time.time()
+    
+    if (
+      config.log_per_epoch > -1 and
+      (epoch + 1) % config.log_per_epoch == 0 or epoch == 0
+    ):
+      train_metrics = common_utils.get_metrics(train_metrics)
+      summary = {
+          f'train_{k}': v
+          for k, v in jax.tree_util.tree_map(
+              lambda x: x.mean(), train_metrics
+          ).items()
+      }
+      summary['seconds_per_epoch'] = (time.time() - train_metrics_last_t) / config.log_per_epoch
+      writer.write_scalars(step + 1, summary)
+      train_metrics = []
+      train_metrics_last_t = time.time()
 
-    if (step + 1) % steps_per_epoch == 0:
-      epoch = step // steps_per_epoch
+    # logging per epoch
+    if (epoch + 1) % config.eval_per_epoch == 0 or epoch == 0:
       eval_metrics = []
-
       # sync batch statistics across replicas
       state = sync_batch_stats(state)
-      for _ in range(steps_per_eval):
-        eval_batch = next(eval_dataset)
+      for n_eval_batch, eval_batch in enumerate(eval_dataset):
+        if n_eval_batch + 1 > steps_per_eval:
+          break
         metrics = p_eval_step(state, eval_batch)
         eval_metrics.append(metrics)
       eval_metrics = common_utils.get_metrics(eval_metrics)
@@ -364,11 +369,13 @@ def train_and_evaluate(
           summary['loss'],
           summary['accuracy'] * 100,
       )
-      writer.write_scalars(
-          step + 1, {f'eval_{key}': val for key, val in summary.items()}
-      )
+      writer.write_scalars(step + 1, {f'eval_{key}': val for key, val in summary.items()})
       writer.flush()
-    if (step + 1) % steps_per_checkpoint == 0 or step + 1 == num_steps or step == 0:
+
+    if (
+      (epoch + 1) % config.checkpoint_per_epoch == 0
+      or epoch == config.num_epochs or epoch == 0
+    ):
       state = sync_batch_stats(state)
       # TODO{km}: suppress the annoying warning.
       save_checkpoint(state, workdir)
