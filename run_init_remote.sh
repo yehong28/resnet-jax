@@ -1,10 +1,7 @@
 # initialize and set up remote TPU VM
 
-# VM_NAME=kmh-tpuvm-v3-32-1
-# ZONE=europe-west4-a  # v3
-
-VM_NAME=kmh-tpuvm-v4-32
-ZONE=us-central2-b  # v4
+VM_NAME=kmh-tpuvm-v3-32-2
+ZONE=europe-west4-a  # v3
 
 # install packages
 gcloud compute tpus tpu-vm ssh $VM_NAME --zone $ZONE \
@@ -20,17 +17,23 @@ pip3 install jax[tpu]==0.4.25 -f https://storage.googleapis.com/jax-releases/lib
 pip3 install ml-collections==0.1.1
 pip3 install numpy==1.26.4
 pip3 install optax==0.2.1
-pip3 install tensorflow==2.15.0.post1
-pip3 install tensorflow-datasets==4.9.4
-
-# sanity check
-python3 -c 'import jax; print(jax.device_count())'
+pip3 install torch==2.2.2
+pip3 install torchvision==0.17.2
 
 "
 
-# mount NFS Filestore
+# sanity check
 gcloud compute tpus tpu-vm ssh $VM_NAME --zone $ZONE \
 --worker=all --command "
+python3 -c 'import jax; print(jax.device_count())'
+"
+
+# # mount NFS Filestore
+gcloud compute tpus tpu-vm ssh $VM_NAME --zone $ZONE \
+--worker=all --command "
+
+sudo apt-get -y update
+sudo apt-get -y install nfs-common
 
 sudo mkdir -p /kmh-nfs-mount
 sudo mount -o vers=3 10.11.37.106:/kmh_nfs /kmh-nfs-mount
