@@ -309,7 +309,7 @@ def train_and_evaluate(
   train_metrics_last_t = time.time()
   logging.info('Initial compilation, this might take some minutes...')
   for epoch in range(config.num_epochs + 1):
-    # train_loader.sampler.set_epoch(epoch)
+    train_loader.sampler.set_epoch(epoch)
     for n_batch, batch in enumerate(train_loader):
       step = epoch * steps_per_epoch + n_batch + step_offset
       state, metrics = p_train_step(state, batch)

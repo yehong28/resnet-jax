@@ -58,10 +58,10 @@ def prepare_batch_data(batch):
   return return_dict
 
 
-# def collate_fn(batch):
-#   batch = default_collate(batch)
-#   batch = prepare_batch_data(batch)
-#   return batch
+def collate_fn(batch):
+  batch = default_collate(batch)
+  batch = prepare_batch_data(batch)
+  return batch
 
 
 def worker_init_fn(worker_id):
@@ -130,7 +130,7 @@ def create_split(
     )
     it = DataLoader(
       ds, batch_size=batch_size, drop_last=True,
-      #collate_fn=collate_fn,
+      collate_fn=collate_fn,
       worker_init_fn=worker_init_fn,
       sampler=sampler,
       num_workers=dataset_cfg.num_workers,
@@ -140,7 +140,7 @@ def create_split(
   else:
     it = DataLoader(
       ds, batch_size=batch_size, shuffle=True, drop_last=True,
-      #collate_fn=collate_fn,
+      collate_fn=collate_fn,
       worker_init_fn=worker_init_fn,
       num_workers=dataset_cfg.num_workers,
       prefetch_factor=dataset_cfg.prefetch_factor,
@@ -148,6 +148,6 @@ def create_split(
     )
 
   steps_per_epoch = len(it)
-  it = map(prepare_batch_data, it)
+  # it = map(prepare_batch_data, it)
 
   return it, steps_per_epoch
