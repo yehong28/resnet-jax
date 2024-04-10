@@ -41,6 +41,9 @@ def get_config():
   config.dataset = dataset = ml_collections.ConfigDict()
   dataset.name = 'imagenet'
   dataset.root = '/kmh-nfs-us-mount/data/imagenet'
+  dataset.num_workers = 32
+  dataset.prefetch_factor = 8
+  dataset.pin_memory = True
   dataset.cache = False
 
   # Training

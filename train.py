@@ -265,13 +265,13 @@ def train_and_evaluate(
   else:
     input_dtype = torch.float32
 
-  train_dataset, steps_per_epoch = input_pipeline.create_split(
+  train_loader, steps_per_epoch = input_pipeline.create_split(
     config.dataset,
     local_batch_size,
     split='train',
     input_dtype=input_dtype,
   )
-  eval_dataset, steps_per_eval = input_pipeline.create_split(
+  eval_loader, steps_per_eval = input_pipeline.create_split(
     config.dataset,
     local_batch_size,
     split='val',
@@ -309,7 +309,8 @@ def train_and_evaluate(
   train_metrics_last_t = time.time()
   logging.info('Initial compilation, this might take some minutes...')
   for epoch in range(config.num_epochs + 1):
-    for n_batch, batch in enumerate(train_dataset):
+    # train_loader.sampler.set_epoch(epoch)
+    for n_batch, batch in enumerate(train_loader):
       step = epoch * steps_per_epoch + n_batch + step_offset
       state, metrics = p_train_step(state, batch)
       for h in hooks:
@@ -356,7 +357,7 @@ def train_and_evaluate(
       eval_metrics = []
       # sync batch statistics across replicas
       state = sync_batch_stats(state)
-      for n_eval_batch, eval_batch in enumerate(eval_dataset):
+      for n_eval_batch, eval_batch in enumerate(eval_loader):
         if n_eval_batch + 1 > steps_per_eval:
           break
         metrics = p_eval_step(state, eval_batch)

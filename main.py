@@ -25,7 +25,6 @@ from absl import logging
 from clu import platform
 import jax
 from ml_collections import config_flags
-import tensorflow as tf
 
 import train
 
@@ -47,10 +46,6 @@ config_flags.DEFINE_config_file(
 def main(argv):
   if len(argv) > 1:
     raise app.UsageError('Too many command-line arguments.')
-
-  # Hide any GPUs from TensorFlow. Otherwise TF might reserve memory and make
-  # it unavailable to JAX.
-  tf.config.experimental.set_visible_devices([], 'GPU')
 
   logging.info('JAX process: %d / %d', jax.process_index(), jax.process_count())
   logging.info('JAX local devices: %r', jax.local_devices())
