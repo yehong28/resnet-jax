@@ -121,31 +121,21 @@ def create_split(
       transforms.ConvertImageDtype(input_dtype),
   ]))
 
-  if split == 'train':
-    sampler = DistributedSampler(
-      ds,
-      num_replicas=get_world_size(),
-      rank=get_rank(),
-      shuffle=True,
-    )
-    it = DataLoader(
-      ds, batch_size=batch_size, drop_last=True,
-      collate_fn=collate_fn,
-      worker_init_fn=worker_init_fn,
-      sampler=sampler,
-      num_workers=dataset_cfg.num_workers,
-      prefetch_factor=dataset_cfg.prefetch_factor,
-      pin_memory=dataset_cfg.pin_memory,
-    )
-  else:
-    it = DataLoader(
-      ds, batch_size=batch_size, shuffle=True, drop_last=True,
-      collate_fn=collate_fn,
-      worker_init_fn=worker_init_fn,
-      num_workers=dataset_cfg.num_workers,
-      prefetch_factor=dataset_cfg.prefetch_factor,
-      pin_memory=dataset_cfg.pin_memory,
-    )
+  sampler = DistributedSampler(
+    ds,
+    num_replicas=get_world_size(),
+    rank=get_rank(),
+    shuffle=True,
+  )
+  it = DataLoader(
+    ds, batch_size=batch_size, drop_last=True,
+    collate_fn=collate_fn,
+    worker_init_fn=worker_init_fn,
+    sampler=sampler,
+    num_workers=dataset_cfg.num_workers,
+    prefetch_factor=dataset_cfg.prefetch_factor,
+    pin_memory=dataset_cfg.pin_memory,
+  )
 
   steps_per_epoch = len(it)
   # it = map(prepare_batch_data, it)

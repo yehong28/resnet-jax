@@ -8,7 +8,9 @@ PyTorch DataLoader
 - Increase `num_workers` and `prefetch_factor`. A thorough discussion: https://github.com/pytorch/xla/issues/2690
 - Random seed control
   - DataLoader: `worker_init_fn`
-  - Epochs: `torch.utils.data.distributed.DistributedSampler` for distirbuted training. <s>The training curve is exactly the same with or without `train_loader.sampler.set_epoch(epoch)`, and need to rewrite `map(dataloader)` to `collate_fn` which seems decrease the data loading speed, so it is removed.</s> In distributed (multi-node) loading, every single "node" (to be precisely, "process", but in JAX, one node has one process) maintains only a subset of the data: with N nodes, each node has 1281167 / N samples cached. if there's no `set_epoch`, the subsets across different nodes won't be shuffled.
+  - Epochs: `torch.utils.data.distributed.DistributedSampler` for distirbuted training.
+    <s>The training curve is exactly the same with or without `train_loader.sampler.set_epoch(epoch)`, and need to rewrite `map(dataloader)` to `collate_fn` which seems decrease the data loading speed, so it is removed.</s>
+    In distributed (multi-node) loading, every single "node" (to be precisely, "process", but in JAX, one node has one process) maintains only a subset of the data: with N nodes, each node has 1281167 / N samples cached. if there's no `set_epoch`, the subsets across different nodes won't be shuffled.
 
 ### Packages
 - torch, torchvision
