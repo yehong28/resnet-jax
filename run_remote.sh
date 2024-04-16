@@ -13,7 +13,7 @@ now=`date '+%Y%m%d_%H%M%S'`
 export salt=`head /dev/urandom | tr -dc a-z0-9 | head -c6`
 JOBNAME=resnet/${now}_${salt}_${VM_NAME}_${CONFIG}_b${batch}_lr${lr}_ep${ep}_torchvision
 
-LOGDIR=/kmh-nfs-us-mount/logs/$USER/$JOBNAME
+LOGDIR=/kmh-nfs-mount/logs/$USER/$JOBNAME
 sudo mkdir -p ${LOGDIR}
 sudo chmod 777 ${LOGDIR}
 
@@ -30,4 +30,5 @@ python3 main.py \
     --config.batch_size=${batch} \
     --config.num_epochs=${ep} \
     --config.learning_rate=${lr} \
+    --config.log_per_step=10 \
 " 2>&1 | tee -a $LOGDIR/output.log

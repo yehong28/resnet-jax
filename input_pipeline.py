@@ -81,9 +81,10 @@ def worker_init_fn(worker_id, rank):
 
 
 from torchvision.datasets.folder import accimage_loader, pil_loader
-# pinned_image = pil_loader('/home/kaiminghe/data_local/imagenet_fake/train/n03937543/ILSVRC2012_val_00043519.JPEG')
+# pinned_image = pil_loader('/kmh-nfs-mount/data/imagenet/train/n02113799/n02113799_212.JPEG')
 def my_loader(path: str):
     from torchvision import get_image_backend    
+    # path = '/kmh-nfs-mount/data/imagenet/train/n02113799/n02113799_212.JPEG'
     if get_image_backend() == "accimage":
         return accimage_loader(path)
     else:

@@ -10,4 +10,4 @@ python3 main.py \
     --config.dataset.num_workers=4 \
     --config.dataset.root=/home/kaiminghe/data_local/imagenet_fake \
     --config.log_per_step=10 \
-    --config.model='_ResNet1'
+    --config.model='ResNet50'
