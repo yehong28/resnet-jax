@@ -311,12 +311,12 @@ def train_and_evaluate(
   # logging.info('Initial compilation, this might take some minutes...')
   logging.info('Start training with compiled p_train_step...')
   for epoch in range(epoch_offset, config.num_epochs):
-    # if dist_util.get_world_size() > 1:
-    #   train_loader.sampler.set_epoch(epoch)
+    if dist_util.get_world_size() > 1:
+      train_loader.sampler.set_epoch(epoch)
+    logging.info('epoch {}...'.format(epoch))
     for n_batch, batch in enumerate(train_loader):
       step = epoch * steps_per_epoch + n_batch
       state, metrics = p_train_step(state, batch)
-      # metrics = {}
       for h in hooks:
         h(step)
       # if epoch == epoch_offset and n_batch == 0:
@@ -339,33 +339,34 @@ def train_and_evaluate(
           train_metrics_last_t = time.time()
 
     # logging per epoch
-    # if (epoch + 1) % config.eval_per_epoch == 0 or epoch == 0:
-    #   eval_metrics = []
-    #   # sync batch statistics across replicas
-    #   state = sync_batch_stats(state)
-    #   for n_eval_batch, eval_batch in enumerate(eval_loader):
-    #     if n_eval_batch + 1 > steps_per_eval:
-    #       break
-    #     metrics = p_eval_step(state, eval_batch)
-    #     eval_metrics.append(metrics)
-    #   eval_metrics = common_utils.get_metrics(eval_metrics)
-    #   summary = jax.tree_util.tree_map(lambda x: x.mean(), eval_metrics)
-    #   logging.info(
-    #       'eval epoch: %d, loss: %.4f, accuracy: %.2f',
-    #       epoch,
-    #       summary['loss'],
-    #       summary['accuracy'] * 100,
-    #   )
-    #   writer.write_scalars(step + 1, {f'eval_{key}': val for key, val in summary.items()})
-    #   writer.flush()
+    if (epoch + 1) % config.eval_per_epoch == 0:
+      logging.info('Eval epoch {}...'.format(epoch))
+      eval_metrics = []
+      # sync batch statistics across replicas
+      state = sync_batch_stats(state)
+      for n_eval_batch, eval_batch in enumerate(eval_loader):
+        if (n_eval_batch + 1) % config.log_per_step == 0:
+          logging.info('eval: {}/{}'.format(n_eval_batch, steps_per_eval))
+        metrics = p_eval_step(state, eval_batch)
+        eval_metrics.append(metrics)
+      eval_metrics = common_utils.get_metrics(eval_metrics)
+      summary = jax.tree_util.tree_map(lambda x: x.mean(), eval_metrics)
+      logging.info(
+          'eval epoch: %d, loss: %.4f, accuracy: %.2f',
+          epoch,
+          summary['loss'],
+          summary['accuracy'] * 100,
+      )
+      writer.write_scalars(step + 1, {f'eval_{key}': val for key, val in summary.items()})
+      writer.flush()
 
-    # if (
-    #   (epoch + 1) % config.checkpoint_per_epoch == 0
-    #   or epoch == config.num_epochs or epoch == 0
-    # ):
-    #   state = sync_batch_stats(state)
-    #   # TODO{km}: suppress the annoying warning.
-    #   save_checkpoint(state, workdir)
+    if (
+      (epoch + 1) % config.checkpoint_per_epoch == 0
+      or epoch == config.num_epochs
+    ):
+      state = sync_batch_stats(state)
+      # TODO{km}: suppress the annoying warning.
+      save_checkpoint(state, workdir)
 
   # Wait until computations are done before exiting
   jax.random.normal(jax.random.key(0), ()).block_until_ready()

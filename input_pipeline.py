@@ -130,6 +130,7 @@ def create_split(
       num_workers=dataset_cfg.num_workers,
       prefetch_factor=dataset_cfg.prefetch_factor if dataset_cfg.num_workers > 0 else None,
       pin_memory=dataset_cfg.pin_memory,
+      persistent_workers=True if dataset_cfg.num_workers > 0 else False,
     )
     steps_per_epoch = len(it)
   elif split == 'val':
@@ -157,6 +158,7 @@ def create_split(
       num_workers=dataset_cfg.num_workers,
       prefetch_factor=dataset_cfg.prefetch_factor if dataset_cfg.num_workers > 0 else None,
       pin_memory=dataset_cfg.pin_memory,
+      persistent_workers=True if dataset_cfg.num_workers > 0 else False,
     )
     steps_per_epoch = len(it)
   else:
