@@ -294,25 +294,33 @@ def train_and_evaluate(
       functools.partial(train_step, learning_rate_fn=learning_rate_fn),
       axis_name='batch',
   )
+
+  logging.info('Loading one batch for pre-compilation...')
+  batch = next(iter(train_loader))
+  logging.info('Initial compilation, this might take some minutes...')
+  p_train_step = p_train_step.lower(state, batch).compile()
+  logging.info('Initial compilation completed.')
+
   p_eval_step = jax.pmap(eval_step, axis_name='batch')
 
   train_metrics = []
   hooks = []
-  if jax.process_index() == 0:
-    hooks += [periodic_actions.Profile(num_profile_steps=5, logdir=workdir)]
+  # if jax.process_index() == 0:
+  #   hooks += [periodic_actions.Profile(num_profile_steps=5, logdir=workdir)]
   train_metrics_last_t = time.time()
-  logging.info('Initial compilation, this might take some minutes...')
+  # logging.info('Initial compilation, this might take some minutes...')
+  logging.info('Start training with compiled p_train_step...')
   for epoch in range(epoch_offset, config.num_epochs):
     # if dist_util.get_world_size() > 1:
     #   train_loader.sampler.set_epoch(epoch)
     for n_batch, batch in enumerate(train_loader):
       step = epoch * steps_per_epoch + n_batch
-      # state, metrics = p_train_step(state, batch)
-      metrics = {}
+      state, metrics = p_train_step(state, batch)
+      # metrics = {}
       for h in hooks:
         h(step)
-      if epoch == epoch_offset and n_batch == 0:
-        logging.info('Initial compilation completed.')
+      # if epoch == epoch_offset and n_batch == 0:
+      #   logging.info('Initial compilation completed.')
 
       if config.get('log_per_step'):
         train_metrics.append(metrics)
@@ -324,40 +332,40 @@ def train_and_evaluate(
                   lambda x: x.mean(), train_metrics
               ).items()
           }
-          # summary['steps_per_second'] = config.log_per_step / (time.time() - train_metrics_last_t)
-          summary['seconds_per_step'] = (time.time() - train_metrics_last_t) / config.log_per_step
+          summary['steps_per_second'] = config.log_per_step / (time.time() - train_metrics_last_t)
+          # summary['seconds_per_step'] = (time.time() - train_metrics_last_t) / config.log_per_step
           writer.write_scalars(step + 1, summary)
           train_metrics = []
           train_metrics_last_t = time.time()
 
     # logging per epoch
-    if (epoch + 1) % config.eval_per_epoch == 0 or epoch == 0:
-      eval_metrics = []
-      # sync batch statistics across replicas
-      state = sync_batch_stats(state)
-      for n_eval_batch, eval_batch in enumerate(eval_loader):
-        if n_eval_batch + 1 > steps_per_eval:
-          break
-        metrics = p_eval_step(state, eval_batch)
-        eval_metrics.append(metrics)
-      eval_metrics = common_utils.get_metrics(eval_metrics)
-      summary = jax.tree_util.tree_map(lambda x: x.mean(), eval_metrics)
-      logging.info(
-          'eval epoch: %d, loss: %.4f, accuracy: %.2f',
-          epoch,
-          summary['loss'],
-          summary['accuracy'] * 100,
-      )
-      writer.write_scalars(step + 1, {f'eval_{key}': val for key, val in summary.items()})
-      writer.flush()
+    # if (epoch + 1) % config.eval_per_epoch == 0 or epoch == 0:
+    #   eval_metrics = []
+    #   # sync batch statistics across replicas
+    #   state = sync_batch_stats(state)
+    #   for n_eval_batch, eval_batch in enumerate(eval_loader):
+    #     if n_eval_batch + 1 > steps_per_eval:
+    #       break
+    #     metrics = p_eval_step(state, eval_batch)
+    #     eval_metrics.append(metrics)
+    #   eval_metrics = common_utils.get_metrics(eval_metrics)
+    #   summary = jax.tree_util.tree_map(lambda x: x.mean(), eval_metrics)
+    #   logging.info(
+    #       'eval epoch: %d, loss: %.4f, accuracy: %.2f',
+    #       epoch,
+    #       summary['loss'],
+    #       summary['accuracy'] * 100,
+    #   )
+    #   writer.write_scalars(step + 1, {f'eval_{key}': val for key, val in summary.items()})
+    #   writer.flush()
 
-    if (
-      (epoch + 1) % config.checkpoint_per_epoch == 0
-      or epoch == config.num_epochs or epoch == 0
-    ):
-      state = sync_batch_stats(state)
-      # TODO{km}: suppress the annoying warning.
-      save_checkpoint(state, workdir)
+    # if (
+    #   (epoch + 1) % config.checkpoint_per_epoch == 0
+    #   or epoch == config.num_epochs or epoch == 0
+    # ):
+    #   state = sync_batch_stats(state)
+    #   # TODO{km}: suppress the annoying warning.
+    #   save_checkpoint(state, workdir)
 
   # Wait until computations are done before exiting
   jax.random.normal(jax.random.key(0), ()).block_until_ready()

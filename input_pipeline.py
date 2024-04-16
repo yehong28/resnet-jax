@@ -71,13 +71,24 @@ def collate_fn(batch):
   return batch
 
 
-def worker_init_fn(worker_id):
-    seed = worker_id
+def worker_init_fn(worker_id, rank):
+    seed = worker_id + rank * 1000
     torch.manual_seed(seed)
-    torch.cuda.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)
+    # torch.cuda.manual_seed(seed)
+    # torch.cuda.manual_seed_all(seed)
     random.seed(seed)
     np.random.seed(seed)
+
+
+from torchvision.datasets.folder import accimage_loader, pil_loader
+# pinned_image = pil_loader('/home/kaiminghe/data_local/imagenet_fake/train/n03937543/ILSVRC2012_val_00043519.JPEG')
+def my_loader(path: str):
+    from torchvision import get_image_backend    
+    if get_image_backend() == "accimage":
+        return accimage_loader(path)
+    else:
+        return pil_loader(path)
+    # return pinned_image
 
 
 def create_split(
@@ -95,13 +106,15 @@ def create_split(
   rank = dist_util.get_rank()
   if split == 'train':
     ds = datasets.ImageFolder(
-      os.path.join(dataset_cfg.root, 'train'),
+      os.path.join(dataset_cfg.root, split),
       transform=transforms.Compose([
         transforms.RandomResizedCrop(IMAGE_SIZE, interpolation=3),
         transforms.RandomHorizontalFlip(),
         transforms.ToTensor(),
         transforms.Normalize(mean=MEAN_RGB, std=STDDEV_RGB),
-    ]))
+    ]),
+    loader=my_loader,
+    )
     logging.info(ds)
     sampler = DistributedSampler(
       ds,
@@ -111,8 +124,8 @@ def create_split(
     )
     it = DataLoader(
       ds, batch_size=batch_size, drop_last=True,
-      # collate_fn=collate_fn,
-      worker_init_fn=worker_init_fn,
+      collate_fn=collate_fn,
+      worker_init_fn=partial(worker_init_fn, rank=rank),
       sampler=sampler,
       num_workers=dataset_cfg.num_workers,
       prefetch_factor=dataset_cfg.prefetch_factor if dataset_cfg.num_workers > 0 else None,
@@ -121,7 +134,7 @@ def create_split(
     steps_per_epoch = len(it)
   elif split == 'val':
     ds = datasets.ImageFolder(
-      os.path.join(dataset_cfg.root, 'train'),
+      os.path.join(dataset_cfg.root, split),
       transform=transforms.Compose([
         transforms.Resize(IMAGE_SIZE + CROP_PADDING, interpolation=3),
         transforms.CenterCrop(IMAGE_SIZE),
@@ -138,8 +151,8 @@ def create_split(
     it = DataLoader(
       ds, batch_size=batch_size,
       drop_last=True,  # TODO: don't drop for val
-      # collate_fn=collate_fn,
-      worker_init_fn=worker_init_fn,
+      collate_fn=collate_fn,
+      worker_init_fn=partial(worker_init_fn, rank=rank),
       sampler=sampler,
       num_workers=dataset_cfg.num_workers,
       prefetch_factor=dataset_cfg.prefetch_factor if dataset_cfg.num_workers > 0 else None,
