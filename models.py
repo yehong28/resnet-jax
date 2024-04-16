@@ -99,6 +99,8 @@ class ResNet(nn.Module):
 
   @nn.compact
   def __call__(self, x, train: bool = True):
+    x = x.astype(self.dtype)
+
     conv = partial(self.conv, use_bias=False, dtype=self.dtype)
     norm = partial(
         nn.BatchNorm,

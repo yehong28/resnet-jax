@@ -55,10 +55,10 @@ def get_config():
   config.prefetch = 10
 
   config.num_epochs = 100
-  config.log_per_step = 10
+  config.log_per_step = 1
   config.log_per_epoch = -1
   config.eval_per_epoch = 1
-  config.checkpoint_per_epoch = 1
+  config.checkpoint_per_epoch = 20
 
   config.steps_per_eval = -1
 

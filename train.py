@@ -36,7 +36,8 @@ import jax.numpy as jnp
 from jax import random
 import ml_collections
 import optax
-import torch
+
+import utils.dist_util as dist_util
 
 import input_pipeline
 import models
@@ -64,7 +65,9 @@ def initialized(key, image_size, model):
   def init(*args):
     return model.init(*args)
 
+  logging.info('Initializing params...')
   variables = init({'params': key}, jnp.ones(input_shape, model.dtype))
+  logging.info('Initializing params done.')
   return variables['params'], variables['batch_stats']
 
 
@@ -256,26 +259,15 @@ def train_and_evaluate(
 
   platform = jax.local_devices()[0].platform
 
-  if config.half_precision:
-    if platform == 'tpu':
-      input_dtype = torch.bfloat16
-      #input_dtype = torch.float16
-    else:
-      input_dtype = torch.float16
-  else:
-    input_dtype = torch.float32
-
   train_loader, steps_per_epoch = input_pipeline.create_split(
     config.dataset,
     local_batch_size,
     split='train',
-    input_dtype=input_dtype,
   )
   eval_loader, steps_per_eval = input_pipeline.create_split(
     config.dataset,
     local_batch_size,
     split='val',
-    input_dtype=input_dtype,
   )
 
   if config.steps_per_eval != -1:
@@ -294,6 +286,8 @@ def train_and_evaluate(
   state = restore_checkpoint(state, workdir)
   # step_offset > 0 if restarting from checkpoint
   step_offset = int(state.step)
+  epoch_offset = step_offset // steps_per_epoch  # sanity check for resuming
+  assert epoch_offset * steps_per_epoch == step_offset
   state = jax_utils.replicate(state)
 
   p_train_step = jax.pmap(
@@ -308,49 +302,33 @@ def train_and_evaluate(
     hooks += [periodic_actions.Profile(num_profile_steps=5, logdir=workdir)]
   train_metrics_last_t = time.time()
   logging.info('Initial compilation, this might take some minutes...')
-  for epoch in range(config.num_epochs + 1):
-    train_loader.sampler.set_epoch(epoch)
+  for epoch in range(epoch_offset, config.num_epochs):
+    # if dist_util.get_world_size() > 1:
+    #   train_loader.sampler.set_epoch(epoch)
     for n_batch, batch in enumerate(train_loader):
-      step = epoch * steps_per_epoch + n_batch + step_offset
-      state, metrics = p_train_step(state, batch)
+      step = epoch * steps_per_epoch + n_batch
+      # state, metrics = p_train_step(state, batch)
+      metrics = {}
       for h in hooks:
         h(step)
-      if step == step_offset:
+      if epoch == epoch_offset and n_batch == 0:
         logging.info('Initial compilation completed.')
-      train_metrics.append(metrics)
-      
-      if (
-        config.log_per_step > -1 and
-        (step + 1) % config.log_per_step == 0 or step == 0
-      ):
-        train_metrics = common_utils.get_metrics(train_metrics)
-        summary = {
-            f'train_{k}': v
-            for k, v in jax.tree_util.tree_map(
-                lambda x: x.mean(), train_metrics
-            ).items()
-        }
-        n_steps = config.log_per_step if step > 0 else 1
-        summary['seconds_per_step'] = (time.time() - train_metrics_last_t) / n_steps
-        writer.write_scalars(step + 1, summary)
-        train_metrics = []
-        train_metrics_last_t = time.time()
-    
-    if (
-      config.log_per_epoch > -1 and
-      (epoch + 1) % config.log_per_epoch == 0 or epoch == 0
-    ):
-      train_metrics = common_utils.get_metrics(train_metrics)
-      summary = {
-          f'train_{k}': v
-          for k, v in jax.tree_util.tree_map(
-              lambda x: x.mean(), train_metrics
-          ).items()
-      }
-      summary['seconds_per_epoch'] = (time.time() - train_metrics_last_t) / config.log_per_epoch
-      writer.write_scalars(step + 1, summary)
-      train_metrics = []
-      train_metrics_last_t = time.time()
+
+      if config.get('log_per_step'):
+        train_metrics.append(metrics)
+        if (step + 1) % config.log_per_step == 0:
+          train_metrics = common_utils.get_metrics(train_metrics)
+          summary = {
+              f'train_{k}': v
+              for k, v in jax.tree_util.tree_map(
+                  lambda x: x.mean(), train_metrics
+              ).items()
+          }
+          # summary['steps_per_second'] = config.log_per_step / (time.time() - train_metrics_last_t)
+          summary['seconds_per_step'] = (time.time() - train_metrics_last_t) / config.log_per_step
+          writer.write_scalars(step + 1, summary)
+          train_metrics = []
+          train_metrics_last_t = time.time()
 
     # logging per epoch
     if (epoch + 1) % config.eval_per_epoch == 0 or epoch == 0:

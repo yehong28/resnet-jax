@@ -15,13 +15,17 @@
 """ImageNet input pipeline."""
 
 import numpy as np
+import os
 import random
 import jax
 import torch
-import torch.distributed as dist
+import utils.dist_util as dist_util
 from torch.utils.data import DataLoader, default_collate
 from torch.utils.data.distributed import DistributedSampler
 from torchvision import datasets, transforms
+
+from absl import logging
+from functools import partial
 
 
 IMAGE_SIZE = 224
@@ -50,6 +54,9 @@ def prepare_batch_data(batch):
   image = jax.dlpack.from_dlpack(torch.utils.dlpack.to_dlpack(image.contiguous()))
   label = jax.dlpack.from_dlpack(torch.utils.dlpack.to_dlpack(label.contiguous()))
 
+  # image = image.numpy()
+  # label = label.numpy()
+
   return_dict = {
     'image': image,
     'label': label,
@@ -73,35 +80,10 @@ def worker_init_fn(worker_id):
     np.random.seed(seed)
 
 
-def is_dist_avail_and_initialized():
-    if not dist.is_available():
-        return False
-    if not dist.is_initialized():
-        return False
-    return True
-
-
-def get_world_size():
-    if not is_dist_avail_and_initialized():
-        return 1
-    return dist.get_world_size()
-
-
-def get_rank():
-    if not is_dist_avail_and_initialized():
-        return 0
-    return dist.get_rank()
-
-
-def is_main_process():
-    return get_rank() == 0
-
-
 def create_split(
     dataset_cfg,
     batch_size,
     split,
-    input_dtype=torch.float32,
 ):
   """Creates a split from the ImageNet dataset using Torchvision Datasets.
 
@@ -110,34 +92,61 @@ def create_split(
   Returns:
     TODO: Add returns explanation.
   """
-  ds = datasets.ImageNet(
-    dataset_cfg.root,
-    split=split,
-    transform=transforms.Compose([
-      transforms.RandomResizedCrop(IMAGE_SIZE),
-      transforms.RandomHorizontalFlip(),
-      transforms.ToTensor(),
-      transforms.Normalize(mean=MEAN_RGB, std=STDDEV_RGB),
-      transforms.ConvertImageDtype(input_dtype),
-  ]))
-
-  sampler = DistributedSampler(
-    ds,
-    num_replicas=get_world_size(),
-    rank=get_rank(),
-    shuffle=True,
-  )
-  it = DataLoader(
-    ds, batch_size=batch_size, drop_last=True,
-    collate_fn=collate_fn,
-    worker_init_fn=worker_init_fn,
-    sampler=sampler,
-    num_workers=dataset_cfg.num_workers,
-    prefetch_factor=dataset_cfg.prefetch_factor,
-    pin_memory=dataset_cfg.pin_memory,
-  )
-
-  steps_per_epoch = len(it)
-  # it = map(prepare_batch_data, it)
+  rank = dist_util.get_rank()
+  if split == 'train':
+    ds = datasets.ImageFolder(
+      os.path.join(dataset_cfg.root, 'train'),
+      transform=transforms.Compose([
+        transforms.RandomResizedCrop(IMAGE_SIZE, interpolation=3),
+        transforms.RandomHorizontalFlip(),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=MEAN_RGB, std=STDDEV_RGB),
+    ]))
+    logging.info(ds)
+    sampler = DistributedSampler(
+      ds,
+      num_replicas=dist_util.get_world_size(),
+      rank=rank,
+      shuffle=True,
+    )
+    it = DataLoader(
+      ds, batch_size=batch_size, drop_last=True,
+      # collate_fn=collate_fn,
+      worker_init_fn=worker_init_fn,
+      sampler=sampler,
+      num_workers=dataset_cfg.num_workers,
+      prefetch_factor=dataset_cfg.prefetch_factor if dataset_cfg.num_workers > 0 else None,
+      pin_memory=dataset_cfg.pin_memory,
+    )
+    steps_per_epoch = len(it)
+  elif split == 'val':
+    ds = datasets.ImageFolder(
+      os.path.join(dataset_cfg.root, 'train'),
+      transform=transforms.Compose([
+        transforms.Resize(IMAGE_SIZE + CROP_PADDING, interpolation=3),
+        transforms.CenterCrop(IMAGE_SIZE),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=MEAN_RGB, std=STDDEV_RGB),
+    ]))
+    logging.info(ds)
+    sampler = DistributedSampler(
+      ds,
+      num_replicas=dist_util.get_world_size(),
+      rank=rank,
+      shuffle=True,  # TODO: don't shuffle for val
+    )
+    it = DataLoader(
+      ds, batch_size=batch_size,
+      drop_last=True,  # TODO: don't drop for val
+      # collate_fn=collate_fn,
+      worker_init_fn=worker_init_fn,
+      sampler=sampler,
+      num_workers=dataset_cfg.num_workers,
+      prefetch_factor=dataset_cfg.prefetch_factor if dataset_cfg.num_workers > 0 else None,
+      pin_memory=dataset_cfg.pin_memory,
+    )
+    steps_per_epoch = len(it)
+  else:
+    raise NotImplementedError
 
   return it, steps_per_epoch
