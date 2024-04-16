@@ -1,6 +1,6 @@
 # initialize and set up remote TPU VM
 
-VM_NAME=kmh-tpuvm-v3-32-2
+VM_NAME=kmh-tpuvm-v3-32-4
 ZONE=europe-west4-a  # v3
 
 # install packages
