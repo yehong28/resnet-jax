@@ -253,9 +253,11 @@ def train_and_evaluate(
 
   image_size = 224
 
-  if config.batch_size % jax.device_count() > 0:
-    raise ValueError('Batch size must be divisible by the number of devices')
+  if config.batch_size % jax.process_count() > 0:
+    raise ValueError('Batch size must be divisible by the number of processes')
   local_batch_size = config.batch_size // jax.process_count()
+  if local_batch_size % jax.device_count() > 0:
+    raise ValueError('Local batch size must be divisible by the number of devices')
 
   platform = jax.local_devices()[0].platform
 
@@ -263,12 +265,17 @@ def train_and_evaluate(
     config.dataset,
     local_batch_size,
     split='train',
+    # split='val',
   )
   eval_loader, steps_per_eval = input_pipeline.create_split(
     config.dataset,
     local_batch_size,
     split='val',
   )
+  logging.info('config.batch_size: {}'.format(config.batch_size))
+  logging.info('local_batch_size: {}'.format(local_batch_size))
+  logging.info('steps_per_epoch: {}'.format(steps_per_epoch))
+  logging.info('steps_per_eval: {}'.format(steps_per_eval))
 
   if config.steps_per_eval != -1:
     steps_per_eval = config.steps_per_eval
@@ -297,6 +304,8 @@ def train_and_evaluate(
 
   logging.info('Loading one batch for pre-compilation...')
   batch = next(iter(train_loader))
+  # batch = input_pipeline.prepare_batch_data(batch)
+  logging.info('Loaded.')
   logging.info('Initial compilation, this might take some minutes...')
   p_train_step = p_train_step.lower(state, batch).compile()
   logging.info('Initial compilation completed.')
@@ -311,11 +320,12 @@ def train_and_evaluate(
   # logging.info('Initial compilation, this might take some minutes...')
   logging.info('Start training with compiled p_train_step...')
   for epoch in range(epoch_offset, config.num_epochs):
-    if dist_util.get_world_size() > 1:
+    if jax.process_count() > 1:
       train_loader.sampler.set_epoch(epoch)
     logging.info('epoch {}...'.format(epoch))
     for n_batch, batch in enumerate(train_loader):
       step = epoch * steps_per_epoch + n_batch
+      # batch = input_pipeline.prepare_batch_data(batch)
       state, metrics = p_train_step(state, batch)
       for h in hooks:
         h(step)
@@ -347,6 +357,7 @@ def train_and_evaluate(
       for n_eval_batch, eval_batch in enumerate(eval_loader):
         if (n_eval_batch + 1) % config.log_per_step == 0:
           logging.info('eval: {}/{}'.format(n_eval_batch, steps_per_eval))
+        # eval_batch = input_pipeline.prepare_batch_data(eval_batch)
         metrics = p_eval_step(state, eval_batch)
         eval_metrics.append(metrics)
       eval_metrics = common_utils.get_metrics(eval_metrics)

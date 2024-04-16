@@ -30,5 +30,7 @@ python3 main.py \
     --config.batch_size=${batch} \
     --config.num_epochs=${ep} \
     --config.learning_rate=${lr} \
+    --config.dataset.prefetch_factor=2 \
+    --config.dataset.num_workers=64 \
     --config.log_per_step=10 \
 " 2>&1 | tee -a $LOGDIR/output.log

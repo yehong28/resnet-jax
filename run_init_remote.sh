@@ -44,4 +44,10 @@ sudo mkdir -p /kmh-nfs-us-mount
 sudo mount -o vers=3 10.26.72.146:/kmh_nfs_us /kmh-nfs-us-mount
 sudo chmod go+rw /kmh-nfs-us-mount
 ls /kmh-nfs-us-mount
+
+sudo mkdir -p /kmh-nfs-zonal-eu-mount
+sudo mount -o vers=3 10.153.168.66:/kmh_nfs_zonal_eu /kmh-nfs-zonal-eu-mount
+sudo chmod go+rw /kmh-nfs-zonal-eu-mount
+ls /kmh-nfs-zonal-eu-mount
+
 "

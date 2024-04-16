@@ -1,25 +1,17 @@
-import torch.distributed as dist
+import jax
 
 
-def is_dist_avail_and_initialized():
-    if not dist.is_available():
-        return False
-    if not dist.is_initialized():
-        return False
-    return True
+def is_distributed():
+    return (jax.process_count() > 1)
 
 
 def get_world_size():
-    if not is_dist_avail_and_initialized():
-        return 1
-    return dist.get_world_size()
+    return jax.process_count()
 
 
 def get_rank():
-    if not is_dist_avail_and_initialized():
-        return 0
-    return dist.get_rank()
+    return jax.process_index()
 
 
 def is_main_process():
-    return get_rank() == 0
+    return (jax.process_index() == 0)

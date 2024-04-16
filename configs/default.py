@@ -43,7 +43,7 @@ def get_config():
   dataset.root = '/kmh-nfs-us-mount/data/imagenet'
   dataset.num_workers = 4
   dataset.prefetch_factor = 2
-  dataset.pin_memory = True
+  dataset.pin_memory = False
   dataset.cache = False
 
   # Training
