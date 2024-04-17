@@ -5,13 +5,13 @@ ZONE=europe-west4-a  # v3
 CONFIG=tpu
 
 # some of the often modified hyperparametes:
-batch=1024
+batch=4096
 lr=0.1
 ep=100
 
 now=`date '+%Y%m%d_%H%M%S'`
 export salt=`head /dev/urandom | tr -dc a-z0-9 | head -c6`
-JOBNAME=resnet/${now}_${salt}_${VM_NAME}_${CONFIG}_b${batch}_lr${lr}_ep${ep}_torchvision_eu
+JOBNAME=resnet/${now}_${salt}_${VM_NAME}_${CONFIG}_b${batch}_lr${lr}_ep${ep}_torchvision
 
 LOGDIR=/kmh-nfs-mount/logs/$USER/$JOBNAME
 sudo mkdir -p ${LOGDIR}

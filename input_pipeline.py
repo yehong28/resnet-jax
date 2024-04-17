@@ -19,7 +19,6 @@ import os
 import random
 import jax
 import torch
-import utils.dist_util as dist_util
 from torch.utils.data import DataLoader, default_collate
 from torch.utils.data.distributed import DistributedSampler
 from torchvision import datasets, transforms
@@ -34,6 +33,8 @@ MEAN_RGB = [0.485, 0.456, 0.406]
 STDDEV_RGB = [0.229, 0.224, 0.225]
 
 
+_local_device_count = jax.local_device_count()
+
 def prepare_batch_data(batch):
   """Reformat a input batch from PyTorch Dataloader.
   
@@ -46,13 +47,9 @@ def prepare_batch_data(batch):
 
   # reshape (host_batch_size, 3, height, width) to
   # (local_devices, device_batch_size, height, width, 3)
-  local_device_count = jax.local_device_count()
   image = image.permute(0, 2, 3, 1)
-  image = image.reshape((local_device_count, -1) + image.shape[1:])
-  label = label.reshape(local_device_count, -1)
-
-  # image = jax.dlpack.from_dlpack(torch.utils.dlpack.to_dlpack(image.contiguous()))
-  # label = jax.dlpack.from_dlpack(torch.utils.dlpack.to_dlpack(label.contiguous()))
+  image = image.reshape((_local_device_count, -1) + image.shape[1:])
+  label = label.reshape(_local_device_count, -1)
 
   image = image.numpy()
   label = label.numpy()
@@ -74,21 +71,14 @@ def collate_fn(batch):
 def worker_init_fn(worker_id, rank):
     seed = worker_id + rank * 1000
     torch.manual_seed(seed)
-    # torch.cuda.manual_seed(seed)
-    # torch.cuda.manual_seed_all(seed)
     random.seed(seed)
     np.random.seed(seed)
 
 
-from torchvision.datasets.folder import accimage_loader, pil_loader
+from torchvision.datasets.folder import pil_loader
 # pinned_image = pil_loader('/kmh-nfs-mount/data/imagenet/train/n02113799/n02113799_212.JPEG')
-def my_loader(path: str):
-    from torchvision import get_image_backend    
-    # path = '/kmh-nfs-mount/data/imagenet/train/n02113799/n02113799_212.JPEG'
-    if get_image_backend() == "accimage":
-        return accimage_loader(path)
-    else:
-        return pil_loader(path)
+def loader(path: str):
+    return pil_loader(path)
     # return pinned_image
 
 
@@ -113,8 +103,8 @@ def create_split(
         transforms.RandomHorizontalFlip(),
         transforms.ToTensor(),
         transforms.Normalize(mean=MEAN_RGB, std=STDDEV_RGB),
-    ]),
-    loader=my_loader,
+      ]),
+      loader=loader,
     )
     logging.info(ds)
     sampler = DistributedSampler(
@@ -125,7 +115,6 @@ def create_split(
     )
     it = DataLoader(
       ds, batch_size=batch_size, drop_last=True,
-      # collate_fn=collate_fn,
       worker_init_fn=partial(worker_init_fn, rank=rank),
       sampler=sampler,
       num_workers=dataset_cfg.num_workers,
@@ -142,7 +131,9 @@ def create_split(
         transforms.CenterCrop(IMAGE_SIZE),
         transforms.ToTensor(),
         transforms.Normalize(mean=MEAN_RGB, std=STDDEV_RGB),
-    ]))
+      ]),
+      loader=loader,
+    )
     logging.info(ds)
     sampler = DistributedSampler(
       ds,

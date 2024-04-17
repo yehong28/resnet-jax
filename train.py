@@ -357,7 +357,7 @@ def train_and_evaluate(
         metrics = p_eval_step(state, eval_batch)
         eval_metrics.append(metrics)
       eval_metrics = common_utils.get_metrics(eval_metrics)
-      summary = jax.tree_util.tree_map(lambda x: x.mean(), eval_metrics)
+      summary = jax.tree_util.tree_map(lambda x: float(x.mean()), eval_metrics)
       logging.info(
           'eval epoch: %d, loss: %.6f, accuracy: %.6f',
           epoch,
