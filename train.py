@@ -37,9 +37,8 @@ from jax import random
 import ml_collections
 import optax
 
-import utils.dist_util as dist_util
-
 import input_pipeline
+from input_pipeline import prepare_batch_data
 import models
 
 
@@ -304,7 +303,7 @@ def train_and_evaluate(
 
   logging.info('Loading one batch for pre-compilation...')
   batch = next(iter(train_loader))
-  # batch = input_pipeline.prepare_batch_data(batch)
+  batch = prepare_batch_data(batch)
   logging.info('Loaded.')
   logging.info('Initial compilation, this might take some minutes...')
   p_train_step = p_train_step.lower(state, batch).compile()
@@ -317,7 +316,6 @@ def train_and_evaluate(
   # if jax.process_index() == 0:
   #   hooks += [periodic_actions.Profile(num_profile_steps=5, logdir=workdir)]
   train_metrics_last_t = time.time()
-  # logging.info('Initial compilation, this might take some minutes...')
   logging.info('Start training with compiled p_train_step...')
   for epoch in range(epoch_offset, config.num_epochs):
     if jax.process_count() > 1:
@@ -325,12 +323,10 @@ def train_and_evaluate(
     logging.info('epoch {}...'.format(epoch))
     for n_batch, batch in enumerate(train_loader):
       step = epoch * steps_per_epoch + n_batch
-      # batch = input_pipeline.prepare_batch_data(batch)
+      batch = prepare_batch_data(batch)
       state, metrics = p_train_step(state, batch)
       for h in hooks:
         h(step)
-      # if epoch == epoch_offset and n_batch == 0:
-      #   logging.info('Initial compilation completed.')
 
       if config.get('log_per_step'):
         train_metrics.append(metrics)
@@ -339,11 +335,11 @@ def train_and_evaluate(
           summary = {
               f'train_{k}': v
               for k, v in jax.tree_util.tree_map(
-                  lambda x: x.mean(), train_metrics
+                  lambda x: float(x.mean()), train_metrics
               ).items()
           }
           summary['steps_per_second'] = config.log_per_step / (time.time() - train_metrics_last_t)
-          # summary['seconds_per_step'] = (time.time() - train_metrics_last_t) / config.log_per_step
+          summary['seconds_per_step'] = (time.time() - train_metrics_last_t) / config.log_per_step
           writer.write_scalars(step + 1, summary)
           train_metrics = []
           train_metrics_last_t = time.time()
@@ -356,14 +352,14 @@ def train_and_evaluate(
       state = sync_batch_stats(state)
       for n_eval_batch, eval_batch in enumerate(eval_loader):
         if (n_eval_batch + 1) % config.log_per_step == 0:
-          logging.info('eval: {}/{}'.format(n_eval_batch, steps_per_eval))
-        # eval_batch = input_pipeline.prepare_batch_data(eval_batch)
+          logging.info('eval: {}/{}'.format(n_eval_batch + 1, steps_per_eval))
+        eval_batch = prepare_batch_data(eval_batch)
         metrics = p_eval_step(state, eval_batch)
         eval_metrics.append(metrics)
       eval_metrics = common_utils.get_metrics(eval_metrics)
       summary = jax.tree_util.tree_map(lambda x: x.mean(), eval_metrics)
       logging.info(
-          'eval epoch: %d, loss: %.4f, accuracy: %.2f',
+          'eval epoch: %d, loss: %.6f, accuracy: %.6f',
           epoch,
           summary['loss'],
           summary['accuracy'] * 100,

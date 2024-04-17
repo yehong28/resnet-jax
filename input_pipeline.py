@@ -105,7 +105,7 @@ def create_split(
     TODO: Add returns explanation.
   """
   rank = jax.process_index()
-  if True:  # split == 'train':
+  if split == 'train':
     ds = datasets.ImageFolder(
       os.path.join(dataset_cfg.root, split),
       transform=transforms.Compose([
@@ -134,35 +134,33 @@ def create_split(
       persistent_workers=True if dataset_cfg.num_workers > 0 else False,
     )
     steps_per_epoch = len(it)
-    it = map(prepare_batch_data, it)
-  # elif split == 'val':
-    # ds = datasets.ImageFolder(
-    #   os.path.join(dataset_cfg.root, split),
-    #   transform=transforms.Compose([
-    #     transforms.Resize(IMAGE_SIZE + CROP_PADDING, interpolation=3),
-    #     transforms.CenterCrop(IMAGE_SIZE),
-    #     transforms.ToTensor(),
-    #     transforms.Normalize(mean=MEAN_RGB, std=STDDEV_RGB),
-    # ]))
-    # logging.info(ds)
-    # sampler = DistributedSampler(
-    #   ds,
-    #   num_replicas=jax.process_count(),
-    #   rank=rank,
-    #   shuffle=True,  # TODO: don't shuffle for val
-    # )
-    # it = DataLoader(
-    #   ds, batch_size=batch_size,
-    #   drop_last=True,  # TODO: don't drop for val
-    #   # collate_fn=collate_fn,
-    #   worker_init_fn=partial(worker_init_fn, rank=rank),
-    #   sampler=sampler,
-    #   num_workers=dataset_cfg.num_workers,
-    #   prefetch_factor=dataset_cfg.prefetch_factor if dataset_cfg.num_workers > 0 else None,
-    #   pin_memory=dataset_cfg.pin_memory,
-    #   persistent_workers=True if dataset_cfg.num_workers > 0 else False,
-    # )
-    # steps_per_epoch = len(it)
+  elif split == 'val':
+    ds = datasets.ImageFolder(
+      os.path.join(dataset_cfg.root, split),
+      transform=transforms.Compose([
+        transforms.Resize(IMAGE_SIZE + CROP_PADDING, interpolation=3),
+        transforms.CenterCrop(IMAGE_SIZE),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=MEAN_RGB, std=STDDEV_RGB),
+    ]))
+    logging.info(ds)
+    sampler = DistributedSampler(
+      ds,
+      num_replicas=jax.process_count(),
+      rank=rank,
+      shuffle=True,  # TODO: don't shuffle for val
+    )
+    it = DataLoader(
+      ds, batch_size=batch_size,
+      drop_last=True,  # TODO: don't drop for val
+      worker_init_fn=partial(worker_init_fn, rank=rank),
+      sampler=sampler,
+      num_workers=dataset_cfg.num_workers,
+      prefetch_factor=dataset_cfg.prefetch_factor if dataset_cfg.num_workers > 0 else None,
+      pin_memory=dataset_cfg.pin_memory,
+      persistent_workers=True if dataset_cfg.num_workers > 0 else False,
+    )
+    steps_per_epoch = len(it)
   else:
     raise NotImplementedError
 

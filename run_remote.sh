@@ -11,7 +11,7 @@ ep=100
 
 now=`date '+%Y%m%d_%H%M%S'`
 export salt=`head /dev/urandom | tr -dc a-z0-9 | head -c6`
-JOBNAME=resnet/${now}_${salt}_${VM_NAME}_${CONFIG}_b${batch}_lr${lr}_ep${ep}_torchvision
+JOBNAME=resnet/${now}_${salt}_${VM_NAME}_${CONFIG}_b${batch}_lr${lr}_ep${ep}_torchvision_eu
 
 LOGDIR=/kmh-nfs-mount/logs/$USER/$JOBNAME
 sudo mkdir -p ${LOGDIR}
@@ -32,5 +32,8 @@ python3 main.py \
     --config.learning_rate=${lr} \
     --config.dataset.prefetch_factor=2 \
     --config.dataset.num_workers=64 \
-    --config.log_per_step=10 \
+    --config.log_per_step=20 \
+    --config.model='ResNet50'
 " 2>&1 | tee -a $LOGDIR/output.log
+
+    # --config.dataset.root='/kmh-nfs-mount/data/imagenet' \
