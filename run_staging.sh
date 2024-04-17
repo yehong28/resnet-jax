@@ -1,16 +1,5 @@
 # Stage code and run job in a remote TPU VM
 
-VM_NAME=kmh-tpuvm-v3-32-4
-ZONE=europe-west4-a
-
-# VM_NAME=kmh-tpuvm-v4-32
-# ZONE=us-central2-b
-
-# VM_NAME=kmh-tpuvm-v2-32-1
-# ZONE=us-central1-a
-
-echo $VM_NAME $ZONE
-
 # ------------------------------------------------
 # Copy all code files to staging
 # ------------------------------------------------

@@ -301,13 +301,13 @@ def train_and_evaluate(
       axis_name='batch',
   )
 
-  logging.info('Loading one batch for pre-compilation...')
-  batch = next(iter(train_loader))
-  batch = prepare_batch_data(batch)
-  logging.info('Loaded.')
-  logging.info('Initial compilation, this might take some minutes...')
-  p_train_step = p_train_step.lower(state, batch).compile()
-  logging.info('Initial compilation completed.')
+  # logging.info('Loading one batch for pre-compilation...')
+  # batch = next(iter(train_loader))
+  # batch = prepare_batch_data(batch)
+  # logging.info('Loaded.')
+  # logging.info('Initial compilation, this might take some minutes...')
+  # p_train_step = p_train_step.lower(state, batch).compile()
+  # logging.info('Initial compilation completed.')
 
   p_eval_step = jax.pmap(eval_step, axis_name='batch')
 
@@ -316,7 +316,8 @@ def train_and_evaluate(
   # if jax.process_index() == 0:
   #   hooks += [periodic_actions.Profile(num_profile_steps=5, logdir=workdir)]
   train_metrics_last_t = time.time()
-  logging.info('Start training with compiled p_train_step...')
+  # logging.info('Start training with compiled p_train_step...')
+  logging.info('Initial compilation, this might take some minutes...')
   for epoch in range(epoch_offset, config.num_epochs):
     if jax.process_count() > 1:
       train_loader.sampler.set_epoch(epoch)
@@ -325,6 +326,11 @@ def train_and_evaluate(
       step = epoch * steps_per_epoch + n_batch
       batch = prepare_batch_data(batch)
       state, metrics = p_train_step(state, batch)
+      
+      if epoch == epoch_offset and n_batch == 0:
+        logging.info('Initial compilation completed. Reset timer.')
+        train_metrics_last_t = time.time()
+      
       for h in hooks:
         h(step)
 

@@ -1,6 +1,16 @@
 # Run job in a remote TPU VM
+
 VM_NAME=kmh-tpuvm-v3-32-4
-ZONE=europe-west4-a  # v3
+# VM_NAME=kmh-tpuvm-v3-128-1
+ZONE=europe-west4-a
+
+# VM_NAME=kmh-tpuvm-v4-32
+# ZONE=us-central2-b
+
+# VM_NAME=kmh-tpuvm-v2-32-1
+# ZONE=us-central1-a
+
+echo $VM_NAME $ZONE
 
 CONFIG=tpu
 

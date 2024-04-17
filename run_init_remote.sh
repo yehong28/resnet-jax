@@ -7,9 +7,6 @@ ZONE=europe-west4-a  # v3
 gcloud compute tpus tpu-vm ssh $VM_NAME --zone $ZONE \
 --worker=all --command "
 
-sudo apt-get -y update
-sudo apt-get -y install nfs-common
-
 pip3 install absl-py==1.4.0
 pip3 install clu==0.0.11
 pip3 install flax==0.8.1
