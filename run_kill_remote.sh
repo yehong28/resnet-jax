@@ -7,7 +7,7 @@ gcloud compute tpus tpu-vm ssh $VM_NAME --zone $ZONE \
 sudo pkill python
 sudo lsof -w /dev/accel0 | grep main.py | awk '{print \"sudo kill -9 \" \$2}' | sh
 sudo lsof -w /dev/accel0
-" &> /dev/null
+" # &> /dev/null
 echo 'Killed jobs.'
 
-# sudo lsof -w /dev/accel0 | grep main.py | awk '{print "sudo kill -9 " $2} | sh'
+# sudo lsof -w /dev/accel0 | grep main.py | awk '{print "sudo kill -9 " $2}' | sh

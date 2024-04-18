@@ -5,7 +5,7 @@ PWD=$(pwd)
 python3 main.py \
     --workdir=${PWD}/tmp --config=configs/tpu.py \
     --config.dataset.cache=True \
-    --config.dataset.root=./imagenet_fake \
+    --config.dataset.root=/kmh-nfs-ssd-eu-mount/data/imagenet_fake \
     --config.batch_size=1024 \
     --config.dataset.prefetch_factor=2 \
     --config.dataset.num_workers=32 \

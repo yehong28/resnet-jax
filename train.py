@@ -252,11 +252,16 @@ def train_and_evaluate(
 
   image_size = 224
 
+  logging.info('config.batch_size: {}'.format(config.batch_size))
+
   if config.batch_size % jax.process_count() > 0:
     raise ValueError('Batch size must be divisible by the number of processes')
   local_batch_size = config.batch_size // jax.process_count()
-  if local_batch_size % jax.device_count() > 0:
-    raise ValueError('Local batch size must be divisible by the number of devices')
+  logging.info('local_batch_size: {}'.format(local_batch_size))
+  logging.info('jax.local_device_count: {}'.format(jax.local_device_count()))
+
+  if local_batch_size % jax.local_device_count() > 0:
+    raise ValueError('Local batch size must be divisible by the number of local devices')
 
   platform = jax.local_devices()[0].platform
 
@@ -271,8 +276,6 @@ def train_and_evaluate(
     local_batch_size,
     split='val',
   )
-  logging.info('config.batch_size: {}'.format(config.batch_size))
-  logging.info('local_batch_size: {}'.format(local_batch_size))
   logging.info('steps_per_epoch: {}'.format(steps_per_epoch))
   logging.info('steps_per_eval: {}'.format(steps_per_eval))
 
@@ -345,7 +348,7 @@ def train_and_evaluate(
               ).items()
           }
           summary['steps_per_second'] = config.log_per_step / (time.time() - train_metrics_last_t)
-          summary['seconds_per_step'] = (time.time() - train_metrics_last_t) / config.log_per_step
+          # summary['seconds_per_step'] = (time.time() - train_metrics_last_t) / config.log_per_step
           writer.write_scalars(step + 1, summary)
           train_metrics = []
           train_metrics_last_t = time.time()
