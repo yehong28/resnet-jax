@@ -1,11 +1,11 @@
 # initialize and set up remote TPU VM
 
-VM_NAME=kmh-tpuvm-v3-32-3
+VM_NAME=kmh-tpuvm-v3-128-1
 ZONE=europe-west4-a  # v3
 
 # install packages
-gcloud compute tpus tpu-vm ssh $VM_NAME --zone $ZONE \
---worker=all --command "
+# gcloud compute tpus tpu-vm ssh $VM_NAME --zone $ZONE \
+# --worker=all --command "
 
 # pip3 install absl-py==1.4.0
 # pip3 install clu==0.0.11
@@ -14,19 +14,17 @@ gcloud compute tpus tpu-vm ssh $VM_NAME --zone $ZONE \
 # pip3 install ml-collections==0.1.1
 # pip3 install numpy==1.26.4
 # pip3 install optax==0.2.1
-
-pip3 install tensorflow==2.15.0.post1
-
+# pip3 install tensorflow==2.15.0.post1
 # pip3 install torch==2.2.2
 # pip3 install torchvision==0.17.2
 
-"
+# "
 
 # sanity check
-# gcloud compute tpus tpu-vm ssh $VM_NAME --zone $ZONE \
-# --worker=all --command "
-# python3 -c 'import jax; print(jax.device_count())'
-# "
+gcloud compute tpus tpu-vm ssh $VM_NAME --zone $ZONE \
+--worker=all --command "
+python3 -c 'import jax; print(jax.device_count())'
+"
 
 # mount NFS Filestore
 # gcloud compute tpus tpu-vm ssh $VM_NAME --zone $ZONE \
