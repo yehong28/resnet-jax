@@ -76,10 +76,9 @@ def worker_init_fn(worker_id, rank):
 
 
 from torchvision.datasets.folder import pil_loader
-# pinned_image = pil_loader('/kmh-nfs-mount/data/imagenet/train/n02113799/n02113799_212.JPEG')
+# pinned_image = pil_loader('/kmh-nfs-ssd-eu-mount/data/imagenet/train/n02113799/n02113799_212.JPEG')
 def loader(path: str):
     return pil_loader(path)
-    # return pinned_image
 
 
 def create_split(
