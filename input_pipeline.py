@@ -139,7 +139,7 @@ def create_split(
       ds,
       num_replicas=jax.process_count(),
       rank=rank,
-      shuffle=(True if split == 'train' else False),  # TODO: don't shuffle for val
+      shuffle=True,  # TODO: don't shuffle for val
     )
     it = DataLoader(
       ds, batch_size=batch_size,
