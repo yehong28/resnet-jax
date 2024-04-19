@@ -265,8 +265,6 @@ def train_and_evaluate(
   if local_batch_size % jax.local_device_count() > 0:
     raise ValueError('Local batch size must be divisible by the number of local devices')
 
-  platform = jax.local_devices()[0].platform
-
   train_loader, steps_per_epoch = input_pipeline.create_split(
     config.dataset,
     local_batch_size,
@@ -305,15 +303,6 @@ def train_and_evaluate(
       functools.partial(train_step, learning_rate_fn=learning_rate_fn),
       axis_name='batch',
   )
-
-  # logging.info('Loading one batch for pre-compilation...')
-  # batch = next(iter(train_loader))
-  # batch = prepare_batch_data(batch)
-  # logging.info('Loaded.')
-  # logging.info('Initial compilation, this might take some minutes...')
-  # p_train_step = p_train_step.lower(state, batch).compile()
-  # logging.info('Initial compilation completed.')
-
   p_eval_step = jax.pmap(eval_step, axis_name='batch')
 
   train_metrics = []
@@ -321,7 +310,6 @@ def train_and_evaluate(
   # if jax.process_index() == 0:
   #   hooks += [periodic_actions.Profile(num_profile_steps=5, logdir=workdir)]
   train_metrics_last_t = time.time()
-  # logging.info('Start training with compiled p_train_step...')
   logging.info('Initial compilation, this might take some minutes...')
   for epoch in range(epoch_offset, config.num_epochs):
     if jax.process_count() > 1:

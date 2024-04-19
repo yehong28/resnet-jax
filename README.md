@@ -117,7 +117,7 @@ This command can also be found in `run_script.sh`, which is what I use to run lo
 
 The first few iterations of the log look like this:
 <p align="center">
-  <img src="https://github.com/KaimingHe/deep-residual-networks/assets/11435359/0e01d271-858e-4803-b32e-917fbe8b6ee7" width="1000">
+  <img src="https://github.com/KaimingHe/deep-residual-networks/assets/11435359/a181d0f2-591f-47f9-9c87-f884feb0ee92" width="1000">
 </p>
 
 You can see that the speed is not ideal, even though we train a tiny `_ResNet1`. **Data loading time with Pytorch loader is a major bottleneck for small models** (including even ResNet-50, 101, 152).

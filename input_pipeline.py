@@ -33,8 +33,6 @@ MEAN_RGB = [0.485, 0.456, 0.406]
 STDDEV_RGB = [0.229, 0.224, 0.225]
 
 
-_local_device_count = jax.local_device_count()
-
 def prepare_batch_data(batch):
   """Reformat a input batch from PyTorch Dataloader.
   
@@ -47,9 +45,10 @@ def prepare_batch_data(batch):
 
   # reshape (host_batch_size, 3, height, width) to
   # (local_devices, device_batch_size, height, width, 3)
+  local_device_count = jax.local_device_count()
   image = image.permute(0, 2, 3, 1)
-  image = image.reshape((_local_device_count, -1) + image.shape[1:])
-  label = label.reshape(_local_device_count, -1)
+  image = image.reshape((local_device_count, -1) + image.shape[1:])
+  label = label.reshape(local_device_count, -1)
 
   image = image.numpy()
   label = label.numpy()
@@ -76,7 +75,6 @@ def worker_init_fn(worker_id, rank):
 
 
 from torchvision.datasets.folder import pil_loader
-# pinned_image = pil_loader('/kmh-nfs-ssd-eu-mount/data/imagenet/train/n02113799/n02113799_212.JPEG')
 def loader(path: str):
     return pil_loader(path)
 
