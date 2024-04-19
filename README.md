@@ -116,11 +116,10 @@ This command can also be found in `run_script.sh`, which is what I use to run lo
 - `_ResNet1` is a tiny ResNet for fast debugging.
 
 The first few iterations of the log look like this:
-<p align="center">
-  <img src="https://github.com/KaimingHe/deep-residual-networks/assets/11435359/a181d0f2-591f-47f9-9c87-f884feb0ee92" width="1000">
-</p>
+<img width="1155" src="https://github.com/KaimingHe/deep-residual-networks/assets/11435359/a181d0f2-591f-47f9-9c87-f884feb0ee92">
 
-You can see that the speed is not ideal, even though we train a tiny `_ResNet1`. **Data loading time with Pytorch loader is a major bottleneck for small models** (including even ResNet-50, 101, 152).
+
+You can see that the speed is not ideal, even though we train a tiny `_ResNet1`. **Data loading time with Pytorch loader is a major bottleneck for small models** (including even ResNet-50, 101, 152; see below).
 
 ### Run multi-node training
 
@@ -239,3 +238,13 @@ Then open `http://localhost:6060/#scalars` in your laptop. You can see the tenso
 
 **Note:**
 - Here, the metrics starting with `ep_` will have `epochs` (x1000) as the x-axis. For example, x-axis with 100k just means 100 epochs. This is useful for calibrating different runs with different batch sizes. 
+
+### *** When to use Pytorch Loader? ***
+
+- As you may see, when using the Pytorch Loader, training ResNet-50 is 2-3x slower than using TFDS. This is because data loader time is the bottleneck.
+
+- Because of this, training ResNet-50, -101, -152, -200 basically has the same time. See below, using 128 TPUs (`v3-128`) and a batch size of 16384. The training time hasn't overlapped the loading time yet.
+
+<img width="1119" src="https://github.com/KaimingHe/deep-residual-networks/assets/11435359/25ef4e60-1528-41bb-a228-068c50bf5b15">
+
+- Based on this observation, Pytorch dataloader is most favored when training **large** models (like ViT), and when using fancy data augmentation (like [timm](https://pypi.org/project/timm/)) which is readily available in Pytorch.
