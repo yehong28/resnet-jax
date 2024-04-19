@@ -135,6 +135,15 @@ def create_split(
       loader=loader,
     )
     logging.info(ds)
+    '''
+    The val has 50000 images. In principle, we want to eval exactly 50000 images.
+    When the batch is too big (>16), this number is not divisible by the batch size.
+    Ideally, we should set drop_last=False, and we will have a tailing batch smaller than the batch size,
+    which would require modifying some eval code.
+    Instead, if we don't use drop_last=False, we would lose some images
+    (e.g., we would evaluate 49152 = 12 * 4096 when using a batch size of 4096).
+    We want to use shuffling in the val set to avoid a systematic bias due to this dropping.
+    '''
     sampler = DistributedSampler(
       ds,
       num_replicas=jax.process_count(),
