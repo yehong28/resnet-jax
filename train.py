@@ -41,6 +41,8 @@ import input_pipeline
 from input_pipeline import prepare_batch_data
 import models
 
+import utils.writer_util as writer_util  # must be after 'from clu import metric_writers'
+
 
 NUM_CLASSES = 1000
 
@@ -146,7 +148,7 @@ def train_step(state, batch, learning_rate_fn):
     grads = lax.pmean(grads, axis_name='batch')
   new_model_state, logits = aux[1]
   metrics = compute_metrics(logits, batch['label'])
-  metrics['learning_rate'] = lr
+  metrics['lr'] = lr
 
   new_state = state.apply_gradients(
       grads=grads, batch_stats=new_model_state['batch_stats']
@@ -337,6 +339,9 @@ def train_and_evaluate(
       for h in hooks:
         h(step)
 
+      # normalize to IN1K epoch anyway
+      ep = step * config.batch_size / 1281167
+
       if config.get('log_per_step'):
         train_metrics.append(metrics)
         if (step + 1) % config.log_per_step == 0:
@@ -349,6 +354,10 @@ def train_and_evaluate(
           }
           summary['steps_per_second'] = config.log_per_step / (time.time() - train_metrics_last_t)
           # summary['seconds_per_step'] = (time.time() - train_metrics_last_t) / config.log_per_step
+
+          # step for tensorboard
+          summary["ep"] = ep
+
           writer.write_scalars(step + 1, summary)
           train_metrics = []
           train_metrics_last_t = time.time()
