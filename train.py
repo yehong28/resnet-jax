@@ -191,7 +191,7 @@ def save_checkpoint(state, workdir):
   state = jax.device_get(jax.tree_util.tree_map(lambda x: x[0], state))
   step = int(state.step)
   logging.info('Saving checkpoint step %d.', step)
-  checkpoints.save_checkpoint_multiprocess(workdir, state, step, keep=3)
+  checkpoints.save_checkpoint_multiprocess(workdir, state, step, keep=2)
 
 
 # pmean only works inside pmap because it needs an axis name.
@@ -378,6 +378,7 @@ def train_and_evaluate(
     if (
       (epoch + 1) % config.checkpoint_per_epoch == 0
       or epoch == config.num_epochs
+      or epoch == 0  # saving at the first epoch for sanity check
     ):
       state = sync_batch_stats(state)
       # TODO{km}: suppress the annoying warning.
