@@ -232,18 +232,32 @@ Assume Tensorboard has been installed in the dev TPU VM. If the alias of `tensor
 In your TPU VM, run the following:
 ```
 tensorboard --port=6060 --logdir_spec=\
-v3-32-2_tpu_b1024_lr0.1_ep100_torchvision_ep1000x:/kmh-nfs-ssd-eu-mount/logs/kaiminghe/resnet/20240418_231133_5vlth5_kmh-tpuvm-v3-32-2_tpu_b1024_lr0.1_ep100_torchvision_ep1000x
+v3-32-2_tpu_b1024_lr0.1_ep100_torchvision:/kmh-nfs-ssd-eu-mount/logs/kaiminghe/resnet/20240419_020919_nevsyj_kmh-tpuvm-v3-32-2_tpu_b1024_lr0.1_ep100_torchvision
 ```
-Then open `http://localhost:6060/#scalars` in your laptop. You can see the tensorboard profiles.
+Then open `http://localhost:6060/#scalars` in your laptop. You can see the tensorboard profile:
+
+<img width="587" src="https://github.com/KaimingHe/deep-residual-networks/assets/11435359/39829a1f-6258-4062-aed3-71fdc88891f5">
+
 
 **Note:**
 - Here, the metrics starting with `ep_` will have `epochs` (x1000) as the x-axis. For example, x-axis with 100k just means 100 epochs. This is useful for calibrating different runs with different batch sizes. 
+
+
+Here is another run with 128 TPUs (`v3-128`, 16 nodes):
+```
+tensorboard --port=6060 --logdir_spec=\
+v3-128-1_tpu_b8192_lr0.1_ep100_torchvision:/kmh-nfs-ssd-eu-mount/logs/kaiminghe/resnet/20240419_023004_itp67c_kmh-tpuvm-v3-128-1_tpu_b8192_lr0.1_ep100_torchvision
+```
+
+It is about 3x faster than `v3-32`. Note that data loading is still the bottleneck.
+<img width="610" alt="Screenshot 2024-04-19 at 10 17 22 AM" src="https://github.com/KaimingHe/deep-residual-networks/assets/11435359/3592e263-d509-4d62-a087-28c6c3c8621f">
+
 
 ### *** When to use Pytorch Loader? ***
 
 - As you may see, when using the Pytorch Loader, training ResNet-50 is 2-3x slower than using TFDS. This is because data loader time is the bottleneck.
 
-- Because of this, training ResNet-50, -101, -152, -200 basically has the same time. See below, using 128 TPUs (`v3-128`) and a batch size of 16384. The training time hasn't overlapped the loading time yet.
+- Because of this, training ResNet-50, -101, -152, -200 basically has the same time. See below, with 128 TPUs (`v3-128`) and a batch size of 16384. The training time hasn't overlapped the loading time yet.
 
 <img width="1119" src="https://github.com/KaimingHe/deep-residual-networks/assets/11435359/25ef4e60-1528-41bb-a228-068c50bf5b15">
 
