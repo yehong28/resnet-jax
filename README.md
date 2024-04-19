@@ -5,7 +5,7 @@ Work in progress. Written by Congyue Deng, Kaiming He.
 ### Notes
 PyTorch DataLoader
 
-- This branch is built on top of the main branch: https://github.com/KaimingHe/resnet_jax/tree/main, which is based the TFDS dataloader.
+- This branch is built on top of the main branch: https://github.com/KaimingHe/resnet_jax/tree/main, which is based on the TFDS dataloader.
 
 - For debugging, use the flag `--debug=True` to call `with jax.disable_jit():` which disables jax compilation. Be careful, this may increase memory consumption
 

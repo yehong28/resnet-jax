@@ -87,9 +87,12 @@ def create_split(
   """Creates a split from the ImageNet dataset using Torchvision Datasets.
 
   Args:
-    TODO: Add args explanation.
+    dataset_cfg: Configurations for the dataset.
+    batch_size: Batch size for the dataloader.
+    split: 'train' or 'val'.
   Returns:
-    TODO: Add returns explanation.
+    it: A PyTorch Dataloader.
+    steps_per_epoch: Number of steps to loop through the DataLoader.
   """
   rank = jax.process_index()
   if split == 'train':
@@ -136,7 +139,7 @@ def create_split(
       ds,
       num_replicas=jax.process_count(),
       rank=rank,
-      shuffle=True,  # TODO: don't shuffle for val
+      shuffle=(True if split == 'train' else False),  # TODO: don't shuffle for val
     )
     it = DataLoader(
       ds, batch_size=batch_size,
