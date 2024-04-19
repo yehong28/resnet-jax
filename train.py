@@ -382,7 +382,9 @@ def train_and_evaluate(
           summary['loss'],
           summary['accuracy'] * 100,
       )
-      writer.write_scalars(step + 1, {f'eval_{key}': val for key, val in summary.items()})
+      summary = {f'eval_{key}': val for key, val in summary.items()}
+      summary["ep"] = ep
+      writer.write_scalars(step + 1, summary)
       writer.flush()
 
     if (
