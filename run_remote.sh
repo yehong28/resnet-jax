@@ -1,6 +1,6 @@
 # Run job in a remote TPU VM
 
-VM_NAME=kmh-tpuvm-v3-32-3
+VM_NAME=kmh-tpuvm-v3-32-2
 # VM_NAME=kmh-tpuvm-v3-128-1
 ZONE=europe-west4-a
 
@@ -15,13 +15,13 @@ echo $VM_NAME $ZONE
 CONFIG=tpu
 
 # some of the often modified hyperparametes:
-batch=2048
+batch=1024
 lr=0.1
 ep=100
 
 now=`date '+%Y%m%d_%H%M%S'`
 export salt=`head /dev/urandom | tr -dc a-z0-9 | head -c6`
-JOBNAME=resnet/${now}_${salt}_${VM_NAME}_${CONFIG}_b${batch}_lr${lr}_ep${ep}_torchvision_ep1000x
+JOBNAME=resnet/${now}_${salt}_${VM_NAME}_${CONFIG}_b${batch}_lr${lr}_ep${ep}_torchvision
 
 LOGDIR=/kmh-nfs-ssd-eu-mount/logs/$USER/$JOBNAME
 sudo mkdir -p ${LOGDIR}
@@ -41,7 +41,7 @@ python3 main.py \
     --config.num_epochs=${ep} \
     --config.learning_rate=${lr} \
     --config.dataset.prefetch_factor=2 \
-    --config.dataset.num_workers=16 \
+    --config.dataset.num_workers=32 \
     --config.log_per_step=20 \
-    --config.model='ResNet152'
+    --config.model='ResNet50'
 " 2>&1 | tee -a $LOGDIR/output.log

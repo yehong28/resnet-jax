@@ -8,6 +8,5 @@ pgrep -af python | grep 'main.py' | grep -v 'grep' | awk '{print \"sudo kill -9 
 " # &> /dev/null
 echo 'Killed jobs.'
 
-# sudo lsof -w /dev/accel0 | grep main.py | awk '{print "sudo kill -9 " $2}' | sh
-# pgrep -af python | grep 'main.py' | awk '{"sudo kill -9 " $2}' | sh
+# pgrep -af python | grep 'main.py' | grep -v 'grep' | awk '{print "sudo kill -9 " $1}' | sh
 

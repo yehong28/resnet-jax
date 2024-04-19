@@ -8,7 +8,6 @@
 import tensorflow as tf
 
 from clu.metric_writers import SummaryWriter
-from clu.metric_writers import LoggingWriter
 
 
 def write_scalars(self, step: int, scalars):

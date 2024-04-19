@@ -11,5 +11,3 @@ python3 main.py \
     --config.dataset.num_workers=32 \
     --config.log_per_step=10 \
     --config.model='_ResNet1'
-
-    # --config.dataset.root=/kmh-nfs-us-mount/data/imagenet \
