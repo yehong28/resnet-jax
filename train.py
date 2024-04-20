@@ -36,10 +36,12 @@ import jax.numpy as jnp
 from jax import random
 import ml_collections
 import optax
-import torch
 
 import input_pipeline
+from input_pipeline import prepare_batch_data
 import models
+
+import utils.writer_util as writer_util  # must be after 'from clu import metric_writers'
 
 
 NUM_CLASSES = 1000
@@ -64,7 +66,9 @@ def initialized(key, image_size, model):
   def init(*args):
     return model.init(*args)
 
+  logging.info('Initializing params...')
   variables = init({'params': key}, jnp.ones(input_shape, model.dtype))
+  logging.info('Initializing params done.')
   return variables['params'], variables['batch_stats']
 
 
@@ -144,7 +148,7 @@ def train_step(state, batch, learning_rate_fn):
     grads = lax.pmean(grads, axis_name='batch')
   new_model_state, logits = aux[1]
   metrics = compute_metrics(logits, batch['label'])
-  metrics['learning_rate'] = lr
+  metrics['lr'] = lr
 
   new_state = state.apply_gradients(
       grads=grads, batch_stats=new_model_state['batch_stats']
@@ -187,7 +191,7 @@ def save_checkpoint(state, workdir):
   state = jax.device_get(jax.tree_util.tree_map(lambda x: x[0], state))
   step = int(state.step)
   logging.info('Saving checkpoint step %d.', step)
-  checkpoints.save_checkpoint_multiprocess(workdir, state, step, keep=3)
+  checkpoints.save_checkpoint_multiprocess(workdir, state, step, keep=2)
 
 
 # pmean only works inside pmap because it needs an axis name.
@@ -246,37 +250,34 @@ def train_and_evaluate(
       logdir=workdir, just_logging=jax.process_index() != 0
   )
 
-  rng = random.key(0)
+  rng = random.key(config.seed)
 
   image_size = 224
 
-  if config.batch_size % jax.device_count() > 0:
-    raise ValueError('Batch size must be divisible by the number of devices')
+  logging.info('config.batch_size: {}'.format(config.batch_size))
+
+  if config.batch_size % jax.process_count() > 0:
+    raise ValueError('Batch size must be divisible by the number of processes')
   local_batch_size = config.batch_size // jax.process_count()
+  logging.info('local_batch_size: {}'.format(local_batch_size))
+  logging.info('jax.local_device_count: {}'.format(jax.local_device_count()))
 
-  platform = jax.local_devices()[0].platform
-
-  if config.half_precision:
-    if platform == 'tpu':
-      input_dtype = torch.bfloat16
-      #input_dtype = torch.float16
-    else:
-      input_dtype = torch.float16
-  else:
-    input_dtype = torch.float32
+  if local_batch_size % jax.local_device_count() > 0:
+    raise ValueError('Local batch size must be divisible by the number of local devices')
 
   train_loader, steps_per_epoch = input_pipeline.create_split(
     config.dataset,
     local_batch_size,
     split='train',
-    input_dtype=input_dtype,
+    # split='val',
   )
   eval_loader, steps_per_eval = input_pipeline.create_split(
     config.dataset,
     local_batch_size,
     split='val',
-    input_dtype=input_dtype,
   )
+  logging.info('steps_per_epoch: {}'.format(steps_per_epoch))
+  logging.info('steps_per_eval: {}'.format(steps_per_eval))
 
   if config.steps_per_eval != -1:
     steps_per_eval = config.steps_per_eval
@@ -294,6 +295,8 @@ def train_and_evaluate(
   state = restore_checkpoint(state, workdir)
   # step_offset > 0 if restarting from checkpoint
   step_offset = int(state.step)
+  epoch_offset = step_offset // steps_per_epoch  # sanity check for resuming
+  assert epoch_offset * steps_per_epoch == step_offset
   state = jax_utils.replicate(state)
 
   p_train_step = jax.pmap(
@@ -304,78 +307,78 @@ def train_and_evaluate(
 
   train_metrics = []
   hooks = []
-  if jax.process_index() == 0:
-    hooks += [periodic_actions.Profile(num_profile_steps=5, logdir=workdir)]
+  # if jax.process_index() == 0:
+  #   hooks += [periodic_actions.Profile(num_profile_steps=5, logdir=workdir)]
   train_metrics_last_t = time.time()
   logging.info('Initial compilation, this might take some minutes...')
-  for epoch in range(config.num_epochs + 1):
-    train_loader.sampler.set_epoch(epoch)
+  for epoch in range(epoch_offset, config.num_epochs):
+    if jax.process_count() > 1:
+      train_loader.sampler.set_epoch(epoch)
+    logging.info('epoch {}...'.format(epoch))
     for n_batch, batch in enumerate(train_loader):
-      step = epoch * steps_per_epoch + n_batch + step_offset
+      step = epoch * steps_per_epoch + n_batch
+      batch = prepare_batch_data(batch)
       state, metrics = p_train_step(state, batch)
+      
+      if epoch == epoch_offset and n_batch == 0:
+        logging.info('Initial compilation completed. Reset timer.')
+        train_metrics_last_t = time.time()
+      
       for h in hooks:
         h(step)
-      if step == step_offset:
-        logging.info('Initial compilation completed.')
-      train_metrics.append(metrics)
-      
-      if (
-        config.log_per_step > -1 and
-        (step + 1) % config.log_per_step == 0 or step == 0
-      ):
-        train_metrics = common_utils.get_metrics(train_metrics)
-        summary = {
-            f'train_{k}': v
-            for k, v in jax.tree_util.tree_map(
-                lambda x: x.mean(), train_metrics
-            ).items()
-        }
-        n_steps = config.log_per_step if step > 0 else 1
-        summary['seconds_per_step'] = (time.time() - train_metrics_last_t) / n_steps
-        writer.write_scalars(step + 1, summary)
-        train_metrics = []
-        train_metrics_last_t = time.time()
-    
-    if (
-      config.log_per_epoch > -1 and
-      (epoch + 1) % config.log_per_epoch == 0 or epoch == 0
-    ):
-      train_metrics = common_utils.get_metrics(train_metrics)
-      summary = {
-          f'train_{k}': v
-          for k, v in jax.tree_util.tree_map(
-              lambda x: x.mean(), train_metrics
-          ).items()
-      }
-      summary['seconds_per_epoch'] = (time.time() - train_metrics_last_t) / config.log_per_epoch
-      writer.write_scalars(step + 1, summary)
-      train_metrics = []
-      train_metrics_last_t = time.time()
+
+      # normalize to IN1K epoch anyway
+      ep = step * config.batch_size / 1281167
+
+      if config.get('log_per_step'):
+        train_metrics.append(metrics)
+        if (step + 1) % config.log_per_step == 0:
+          train_metrics = common_utils.get_metrics(train_metrics)
+          summary = {
+              f'train_{k}': v
+              for k, v in jax.tree_util.tree_map(
+                  lambda x: float(x.mean()), train_metrics
+              ).items()
+          }
+          summary['steps_per_second'] = config.log_per_step / (time.time() - train_metrics_last_t)
+          # summary['seconds_per_step'] = (time.time() - train_metrics_last_t) / config.log_per_step
+
+          # step for tensorboard
+          summary["ep"] = ep
+
+          writer.write_scalars(step + 1, summary)
+          train_metrics = []
+          train_metrics_last_t = time.time()
 
     # logging per epoch
-    if (epoch + 1) % config.eval_per_epoch == 0 or epoch == 0:
+    if (epoch + 1) % config.eval_per_epoch == 0:
+      logging.info('Eval epoch {}...'.format(epoch))
       eval_metrics = []
       # sync batch statistics across replicas
       state = sync_batch_stats(state)
       for n_eval_batch, eval_batch in enumerate(eval_loader):
-        if n_eval_batch + 1 > steps_per_eval:
-          break
+        if (n_eval_batch + 1) % config.log_per_step == 0:
+          logging.info('eval: {}/{}'.format(n_eval_batch + 1, steps_per_eval))
+        eval_batch = prepare_batch_data(eval_batch)
         metrics = p_eval_step(state, eval_batch)
         eval_metrics.append(metrics)
       eval_metrics = common_utils.get_metrics(eval_metrics)
-      summary = jax.tree_util.tree_map(lambda x: x.mean(), eval_metrics)
+      summary = jax.tree_util.tree_map(lambda x: float(x.mean()), eval_metrics)
       logging.info(
-          'eval epoch: %d, loss: %.4f, accuracy: %.2f',
+          'eval epoch: %d, loss: %.6f, accuracy: %.6f',
           epoch,
           summary['loss'],
           summary['accuracy'] * 100,
       )
-      writer.write_scalars(step + 1, {f'eval_{key}': val for key, val in summary.items()})
+      summary = {f'eval_{key}': val for key, val in summary.items()}
+      summary["ep"] = ep
+      writer.write_scalars(step + 1, summary)
       writer.flush()
 
     if (
       (epoch + 1) % config.checkpoint_per_epoch == 0
-      or epoch == config.num_epochs or epoch == 0
+      or epoch == config.num_epochs
+      or epoch == 0  # saving at the first epoch for sanity check
     ):
       state = sync_batch_stats(state)
       # TODO{km}: suppress the annoying warning.

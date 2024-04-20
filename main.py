@@ -27,6 +27,7 @@ import jax
 from ml_collections import config_flags
 
 import train
+from utils import logging_util
 
 import warnings
 warnings.filterwarnings("ignore")
@@ -68,5 +69,7 @@ def main(argv):
 
 
 if __name__ == '__main__':
+  logging_util.verbose_off()
+  logging_util.set_time_logging(logging)
   flags.mark_flags_as_required(['config', 'workdir'])
   app.run(main)

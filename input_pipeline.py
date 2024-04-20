@@ -15,13 +15,16 @@
 """ImageNet input pipeline."""
 
 import numpy as np
+import os
 import random
 import jax
 import torch
-import torch.distributed as dist
 from torch.utils.data import DataLoader, default_collate
 from torch.utils.data.distributed import DistributedSampler
 from torchvision import datasets, transforms
+
+from absl import logging
+from functools import partial
 
 
 IMAGE_SIZE = 224
@@ -47,8 +50,8 @@ def prepare_batch_data(batch):
   image = image.reshape((local_device_count, -1) + image.shape[1:])
   label = label.reshape(local_device_count, -1)
 
-  image = jax.dlpack.from_dlpack(torch.utils.dlpack.to_dlpack(image.contiguous()))
-  label = jax.dlpack.from_dlpack(torch.utils.dlpack.to_dlpack(label.contiguous()))
+  image = image.numpy()
+  label = label.numpy()
 
   return_dict = {
     'image': image,
@@ -64,80 +67,101 @@ def collate_fn(batch):
   return batch
 
 
-def worker_init_fn(worker_id):
-    seed = worker_id
+def worker_init_fn(worker_id, rank):
+    seed = worker_id + rank * 1000
     torch.manual_seed(seed)
-    torch.cuda.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)
     random.seed(seed)
     np.random.seed(seed)
 
 
-def is_dist_avail_and_initialized():
-    if not dist.is_available():
-        return False
-    if not dist.is_initialized():
-        return False
-    return True
-
-
-def get_world_size():
-    if not is_dist_avail_and_initialized():
-        return 1
-    return dist.get_world_size()
-
-
-def get_rank():
-    if not is_dist_avail_and_initialized():
-        return 0
-    return dist.get_rank()
-
-
-def is_main_process():
-    return get_rank() == 0
+from torchvision.datasets.folder import pil_loader
+def loader(path: str):
+    return pil_loader(path)
 
 
 def create_split(
     dataset_cfg,
     batch_size,
     split,
-    input_dtype=torch.float32,
 ):
   """Creates a split from the ImageNet dataset using Torchvision Datasets.
 
   Args:
-    TODO: Add args explanation.
+    dataset_cfg: Configurations for the dataset.
+    batch_size: Batch size for the dataloader.
+    split: 'train' or 'val'.
   Returns:
-    TODO: Add returns explanation.
+    it: A PyTorch Dataloader.
+    steps_per_epoch: Number of steps to loop through the DataLoader.
   """
-  ds = datasets.ImageNet(
-    dataset_cfg.root,
-    split=split,
-    transform=transforms.Compose([
-      transforms.RandomResizedCrop(IMAGE_SIZE),
-      transforms.RandomHorizontalFlip(),
-      transforms.ToTensor(),
-      transforms.Normalize(mean=MEAN_RGB, std=STDDEV_RGB),
-      transforms.ConvertImageDtype(input_dtype),
-  ]))
-
-  sampler = DistributedSampler(
-    ds,
-    num_replicas=get_world_size(),
-    rank=get_rank(),
-    shuffle=True,
-  )
-  it = DataLoader(
-    ds, batch_size=batch_size, drop_last=True,
-    collate_fn=collate_fn,
-    worker_init_fn=worker_init_fn,
-    sampler=sampler,
-    num_workers=dataset_cfg.num_workers,
-    prefetch_factor=dataset_cfg.prefetch_factor,
-    pin_memory=dataset_cfg.pin_memory,
-  )
-
-  steps_per_epoch = len(it)
-  # it = map(prepare_batch_data, it)
+  rank = jax.process_index()
+  if split == 'train':
+    ds = datasets.ImageFolder(
+      os.path.join(dataset_cfg.root, split),
+      transform=transforms.Compose([
+        transforms.RandomResizedCrop(IMAGE_SIZE, interpolation=3),
+        transforms.RandomHorizontalFlip(),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=MEAN_RGB, std=STDDEV_RGB),
+      ]),
+      loader=loader,
+    )
+    logging.info(ds)
+    sampler = DistributedSampler(
+      ds,
+      num_replicas=jax.process_count(),
+      rank=rank,
+      shuffle=True,
+    )
+    it = DataLoader(
+      ds, batch_size=batch_size, drop_last=True,
+      worker_init_fn=partial(worker_init_fn, rank=rank),
+      sampler=sampler,
+      num_workers=dataset_cfg.num_workers,
+      prefetch_factor=dataset_cfg.prefetch_factor if dataset_cfg.num_workers > 0 else None,
+      pin_memory=dataset_cfg.pin_memory,
+      persistent_workers=True if dataset_cfg.num_workers > 0 else False,
+    )
+    steps_per_epoch = len(it)
+  elif split == 'val':
+    ds = datasets.ImageFolder(
+      os.path.join(dataset_cfg.root, split),
+      transform=transforms.Compose([
+        transforms.Resize(IMAGE_SIZE + CROP_PADDING, interpolation=3),
+        transforms.CenterCrop(IMAGE_SIZE),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=MEAN_RGB, std=STDDEV_RGB),
+      ]),
+      loader=loader,
+    )
+    logging.info(ds)
+    '''
+    The val has 50000 images. In principle, we want to eval exactly 50000 images.
+    When the batch is too big (>16), this number is not divisible by the batch size.
+    Ideally, we should set drop_last=False, and we will have a tailing batch smaller than the batch size,
+    which would require modifying some eval code.
+    Instead, if we don't use drop_last=False, we would lose some images
+    (e.g., we would evaluate 49152 = 12 * 4096 when using a batch size of 4096).
+    We want to use shuffling in the val set to avoid a systematic bias due to this dropping.
+    '''
+    sampler = DistributedSampler(
+      ds,
+      num_replicas=jax.process_count(),
+      rank=rank,
+      shuffle=True,  # TODO: don't shuffle for val
+    )
+    it = DataLoader(
+      ds, batch_size=batch_size,
+      drop_last=True,  # TODO: don't drop for val
+      worker_init_fn=partial(worker_init_fn, rank=rank),
+      sampler=sampler,
+      num_workers=dataset_cfg.num_workers,
+      prefetch_factor=dataset_cfg.prefetch_factor if dataset_cfg.num_workers > 0 else None,
+      pin_memory=dataset_cfg.pin_memory,
+      persistent_workers=True if dataset_cfg.num_workers > 0 else False,
+    )
+    steps_per_epoch = len(it)
+  else:
+    raise NotImplementedError
 
   return it, steps_per_epoch
