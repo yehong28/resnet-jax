@@ -250,7 +250,7 @@ def train_and_evaluate(
       logdir=workdir, just_logging=jax.process_index() != 0
   )
 
-  rng = random.key(0)
+  rng = random.key(config.seed)
 
   image_size = 224
 

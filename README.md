@@ -10,11 +10,6 @@ PyTorch DataLoader
 - For debugging, use the flag `--debug=True` to call `with jax.disable_jit():` which disables jax compilation. Be careful, this may increase memory consumption
 
 - Increase `num_workers` and `prefetch_factor`. A thorough discussion: https://github.com/pytorch/xla/issues/2690
-- Random seed control
-  - Using JAX+TPU+torchvision, the numerical repreoduciblity is 100% exact, for every single digit and every iteration!
-  - DataLoader: `worker_init_fn`
-  - Epochs: `torch.utils.data.distributed.DistributedSampler` for distirbuted training.
-    In distributed (multi-node) loading, every single "node" (to be precisely, "process", but in JAX, one node has one process) maintains only a subset of the data: with N nodes, each node has 1281167 / N samples cached. if there's no `set_epoch`, the subsets across different nodes won't be shuffled.
 
 ## Step-by-Step Instruction
 
@@ -262,3 +257,13 @@ It is about 3x faster than `v3-32`. Note that data loading is still the bottlene
 <img width="1119" src="https://github.com/KaimingHe/deep-residual-networks/assets/11435359/25ef4e60-1528-41bb-a228-068c50bf5b15">
 
 - Based on this observation, Pytorch dataloader is most favored when training **large** models (like ViT), and when using fancy data augmentation (like [timm](https://pypi.org/project/timm/)) which is readily available in Pytorch.
+
+### *** Numerical Reproducibility ***
+
+In JAX, the random seed is treated as part of the input to the function; as such, the JAX computation is fully deterministic. In TPUs, the computation is fully deterministic (while in GPU it is not). Using Pytorch Loader, the multi-process dataloader (in both single-/multi-node settings) has process/worker-specific random seed control, and can be made fully deterministic.
+
+When using the same random seed, the same versions of packages, and the same hyper-parameters, running the same job would give **100% numerically exact same result**, up to every single digit and every iteration.
+
+Below are the training loss curves of two jobs. They are exactly the same. Even the running time is very similar.
+
+<img width="1159" src="https://github.com/KaimingHe/deep-residual-networks/assets/11435359/b9a58d7d-69cd-45b8-b419-79eda6a0b062">

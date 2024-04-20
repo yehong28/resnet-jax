@@ -65,6 +65,8 @@ def get_config():
   
   config.half_precision = False
 
+  config.seed = 0  # init random seed
+
   return config
 
 
