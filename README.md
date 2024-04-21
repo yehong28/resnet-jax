@@ -1,6 +1,6 @@
 # Jax training with PyTorch dataloaders
 
-Work in progress. Written by Congyue Deng, Kaiming He.
+Written by Congyue Deng, Kaiming He.
 
 ### Notes
 PyTorch DataLoader
@@ -252,9 +252,10 @@ It is about 3x faster than `v3-32`. Note that data loading is still the bottlene
 
 - As you may see, when using the Pytorch Loader, training ResNet-50 is 2-3x slower than using TFDS. This is because data loader time is the bottleneck.
 
-- Because of this, training ResNet-50, -101, -152, -200 basically has the same time. See below, with 128 TPUs (`v3-128`) and a batch size of 16384. The training time hasn't overlapped the loading time yet.
+- Because of this, training ResNet-50, -101, -152, -200 basically has the same time. See below, with 128 TPUs (`v3-128`) and a batch size of 4096. The training time hasn't overlapped the loading time until ResNet-200.
 
-<img width="1119" src="https://github.com/KaimingHe/deep-residual-networks/assets/11435359/25ef4e60-1528-41bb-a228-068c50bf5b15">
+<img width="621" src="https://github.com/KaimingHe/deep-residual-networks/assets/11435359/12e96992-53d3-4fa6-b8fe-41f9043b9f12">
+
 
 - Based on this observation, Pytorch dataloader is most favored when training **large** models (like ViT), and when using fancy data augmentation (like [timm](https://pypi.org/project/timm/)) which is readily available in Pytorch.
 
