@@ -17,6 +17,8 @@ pip3 install optax==0.2.1
 pip3 install tensorflow==2.15.0.post1
 pip3 install torch==2.2.2
 pip3 install torchvision==0.17.2
+pip3 install orbax-checkpoint==0.4.4
+pip3 install chex==0.1.86
 
 "
 
