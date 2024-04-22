@@ -162,11 +162,18 @@ In your **dev** TPU VM (say, `v4-8`), run:
 ```
 mkdir /kmh-nfs-us-mount/logs/$USER/
 mkdir /kmh-nfs-us-mount/staging/$USER/
+sudo chmod 777 /kmh-nfs-us-mount/logs/$USER
+sudo chmod 777 /kmh-nfs-us-mount/staging/$USER
 ```
 Here, `logs` is the dir to the remote job's artifacts, and `staging` is the dir for staged (cached) **copies** of codes that wil be run in remote TPU VM.
 
 **Note:**
-- You may notice that here the artifacts are in `/kmh-nfs-us-mount` (zone=`us`). In case you have big artifacts (e.g., very large checkpoints), you may want to use the mount in the same zone as your remote TPU VM (`/kmh-nfs-ssd-eu-mount` for TPU v3 in zone=`eu`).
+- You may notice that here the artifacts are in `/kmh-nfs-us-mount` (zone=`us`). In case you have big artifacts (e.g., very large checkpoints), you may want to use the mount in the same zone as your remote TPU VM (`/kmh-nfs-ssd-eu-mount` for TPU v3 in zone=`eu`):
+```
+mkdir /kmh-nfs-ssd-eu-mount/logs/$USER/
+sudo chmod 777 /kmh-nfs-ssd-eu-mount/logs/$USER
+```
+
 
 #### Run a remote job
 
