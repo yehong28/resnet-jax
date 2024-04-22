@@ -340,6 +340,7 @@ def train_and_evaluate(
         train_metrics.append(metrics)
         if (step + 1) % config.log_per_step == 0:
           train_metrics = common_utils.get_metrics(train_metrics)
+          train_metrics.pop('labels')  # used in val only
           summary = {
               f'train_{k}': v
               for k, v in jax.tree_util.tree_map(
