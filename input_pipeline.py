@@ -33,15 +33,21 @@ MEAN_RGB = [0.485, 0.456, 0.406]
 STDDEV_RGB = [0.229, 0.224, 0.225]
 
 
-def prepare_batch_data(batch):
+def prepare_batch_data(batch, batch_size=None):
   """Reformat a input batch from PyTorch Dataloader.
   
   Args:
     batch = (image, label)
       image: shape (host_batch_size, 3, height, width)
       label: shape (host_batch_size)
+    batch_size = expected batch_size of this node, for eval's drop_last=False only
   """
-  image, label = batch
+  image, label = batch  
+
+  # pad the batch if smaller than batch_size
+  if batch_size is not None and batch_size > image.shape[0]:
+    image = torch.cat([image, torch.zeros((batch_size - image.shape[0],) + image.shape[1:], dtype=image.dtype)], axis=0)
+    label = torch.cat([label, -torch.ones((batch_size - label.shape[0],), dtype=label.dtype)], axis=0)
 
   # reshape (host_batch_size, 3, height, width) to
   # (local_devices, device_batch_size, height, width, 3)
@@ -59,12 +65,6 @@ def prepare_batch_data(batch):
   }
 
   return return_dict
-
-
-def collate_fn(batch):
-  batch = default_collate(batch)
-  batch = prepare_batch_data(batch)
-  return batch
 
 
 def worker_init_fn(worker_id, rank):
@@ -136,23 +136,20 @@ def create_split(
     )
     logging.info(ds)
     '''
-    The val has 50000 images. In principle, we want to eval exactly 50000 images.
-    When the batch is too big (>16), this number is not divisible by the batch size.
-    Ideally, we should set drop_last=False, and we will have a tailing batch smaller than the batch size,
-    which would require modifying some eval code.
-    Instead, if we don't use drop_last=False, we would lose some images
-    (e.g., we would evaluate 49152 = 12 * 4096 when using a batch size of 4096).
-    We want to use shuffling in the val set to avoid a systematic bias due to this dropping.
+    The val has 50000 images. We want to eval exactly 50000 images. When the
+    batch is too big (>16), this number is not divisible by the batch size. We
+    set drop_last=False and we will have a tailing batch smaller than the batch
+    size, which requires modifying some eval code.
     '''
     sampler = DistributedSampler(
       ds,
       num_replicas=jax.process_count(),
       rank=rank,
-      shuffle=True,  # TODO: don't shuffle for val
+      shuffle=False,  # don't shuffle for val
     )
     it = DataLoader(
       ds, batch_size=batch_size,
-      drop_last=True,  # TODO: don't drop for val
+      drop_last=False,  # don't drop for val
       worker_init_fn=partial(worker_init_fn, rank=rank),
       sampler=sampler,
       num_workers=dataset_cfg.num_workers,

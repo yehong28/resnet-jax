@@ -79,13 +79,19 @@ def cross_entropy_loss(logits, labels):
 
 
 def compute_metrics(logits, labels):
-  loss = cross_entropy_loss(logits, labels)
-  accuracy = jnp.mean(jnp.argmax(logits, -1) == labels)
+  # compute per-sample loss
+  one_hot_labels = common_utils.onehot(labels, num_classes=NUM_CLASSES)
+  xentropy = optax.softmax_cross_entropy(logits=logits, labels=one_hot_labels)
+  loss = xentropy  # (local_batch_size,)
+
+  accuracy = (jnp.argmax(logits, -1) == labels)  # (local_batch_size,)
   metrics = {
       'loss': loss,
       'accuracy': accuracy,
+      'labels': labels,
   }
-  metrics = lax.pmean(metrics, axis_name='batch')
+  metrics = lax.all_gather(metrics, axis_name='batch')
+  metrics = jax.tree_map(lambda x: x.flatten(), metrics)  # (batch_size,)
   return metrics
 
 
@@ -359,10 +365,18 @@ def train_and_evaluate(
       for n_eval_batch, eval_batch in enumerate(eval_loader):
         if (n_eval_batch + 1) % config.log_per_step == 0:
           logging.info('eval: {}/{}'.format(n_eval_batch + 1, steps_per_eval))
-        eval_batch = prepare_batch_data(eval_batch)
+        eval_batch = prepare_batch_data(eval_batch, local_batch_size)
+
         metrics = p_eval_step(state, eval_batch)
         eval_metrics.append(metrics)
+
       eval_metrics = common_utils.get_metrics(eval_metrics)
+      eval_metrics = jax.tree_map(lambda x: x.flatten(), eval_metrics)
+      logging.info('evaluated samples: {}'.format(eval_metrics['labels'].size))
+      valid = (eval_metrics['labels'] >= 0)
+      eval_metrics = jax.tree_map(lambda x: x[valid], eval_metrics)
+      logging.info('valid samples: {}'.format(eval_metrics['labels'].size))
+
       summary = jax.tree_util.tree_map(lambda x: float(x.mean()), eval_metrics)
       logging.info(
           'eval epoch: %d, loss: %.6f, accuracy: %.6f',

@@ -155,7 +155,7 @@ ResNet500 = partial(
     ResNet, stage_sizes=[3, 124, 36, 3], block_cls=BottleneckResNetBlock
 )
 ResNet800 = partial(
-    ResNet, stage_sizes=[3, 224, 36, 3], block_cls=BottleneckResNetBlock
+    ResNet, stage_sizes=[3, 124, 136, 3], block_cls=BottleneckResNetBlock
 )
 
 
