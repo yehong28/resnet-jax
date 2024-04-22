@@ -26,13 +26,9 @@ from torchvision import datasets, transforms
 from absl import logging
 from functools import partial
 
-import PIL
-import timm
-from timm.data import create_transform
 
-
-IMAGE_SIZE = 224  # TODO{km}: move to config
-CROP_PADDING = 32  # TODO{km}: move to config
+IMAGE_SIZE = 224
+CROP_PADDING = 32
 MEAN_RGB = [0.485, 0.456, 0.406]
 STDDEV_RGB = [0.229, 0.224, 0.225]
 
@@ -83,43 +79,6 @@ def loader(path: str):
     return pil_loader(path)
 
 
-def build_transform(is_train, args):
-    # train transform
-    if is_train:
-        # this should always dispatch to transforms_imagenet_train
-        transform = create_transform(
-            input_size=IMAGE_SIZE,
-            is_training=True,
-            color_jitter=None,
-            auto_augment=args.autoaug,
-            scale=args.scale,
-            ratio=args.ratio,
-            interpolation='bicubic',
-            # re_prob=args.reprob,
-            # re_mode=args.remode,
-            # re_count=args.recount,
-            mean=MEAN_RGB,
-            std=STDDEV_RGB,
-        )
-        return transform
-
-    # eval transform
-    t = []
-    if args.input_size <= 224:  # hack: following DeiT
-        crop_pct = 224 / 256
-    else:
-        crop_pct = 1.0
-    size = int(args.input_size / crop_pct)
-    t.append(
-        transforms.Resize(size, interpolation=PIL.Image.BICUBIC),  # to maintain same ratio w.r.t. 224 images
-    )
-    t.append(transforms.CenterCrop(IMAGE_SIZE))
-
-    t.append(transforms.ToTensor())
-    t.append(transforms.Normalize(MEAN_RGB, STDDEV_RGB))
-    return transforms.Compose(t)
-
-
 def create_split(
     dataset_cfg,
     batch_size,
@@ -137,10 +96,14 @@ def create_split(
   """
   rank = jax.process_index()
   if split == 'train':
-    transform = build_transform(is_train=True, args=dataset_cfg.aug)
     ds = datasets.ImageFolder(
       os.path.join(dataset_cfg.root, split),
-      transform=transform,
+      transform=transforms.Compose([
+        transforms.RandomResizedCrop(IMAGE_SIZE, interpolation=3),
+        transforms.RandomHorizontalFlip(),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=MEAN_RGB, std=STDDEV_RGB),
+      ]),
       loader=loader,
     )
     logging.info(ds)
@@ -161,10 +124,14 @@ def create_split(
     )
     steps_per_epoch = len(it)
   elif split == 'val':
-    transform = build_transform(is_train=True, args=dataset_cfg.aug)
     ds = datasets.ImageFolder(
       os.path.join(dataset_cfg.root, split),
-      transform=transform,
+      transform=transforms.Compose([
+        transforms.Resize(IMAGE_SIZE + CROP_PADDING, interpolation=3),
+        transforms.CenterCrop(IMAGE_SIZE),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=MEAN_RGB, std=STDDEV_RGB),
+      ]),
       loader=loader,
     )
     logging.info(ds)

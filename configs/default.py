@@ -67,13 +67,6 @@ def get_config():
 
   config.seed = 0  # init random seed
 
-  # Data augmentation
-  config.dataset.aug = ml_collections.ConfigDict()
-  config.dataset.aug.autoaug = 'rand-m9-mstd0.5-inc1'
-  config.dataset.aug.scale = (0.08, 1.0)  # scale augmentation
-  config.dataset.aug.ratio = (3. / 4., 4. / 3.)  # aspect ratio augmentation
-
-
   return config
 
 
