@@ -1,6 +1,6 @@
 # initialize and set up remote TPU VM
 
-VM_NAME=kmh-tpuvm-v3-32-2
+VM_NAME=kmh-tpuvm-v3-32-4
 ZONE=europe-west4-a  # v3
 
 # install packages
@@ -17,6 +17,7 @@ pip3 install optax==0.2.1
 pip3 install tensorflow==2.15.0.post1
 pip3 install torch==2.2.2
 pip3 install torchvision==0.17.2
+pip3 install timm==0.9.16
 
 "
 

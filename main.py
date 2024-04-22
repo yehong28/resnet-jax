@@ -61,6 +61,8 @@ def main(argv):
       platform.ArtifactType.DIRECTORY, FLAGS.workdir, 'workdir'
   )
 
+  logging.info('FLAGS.config: \n{}'.format(FLAGS.config))
+
   if FLAGS.debug:
     with jax.disable_jit():
       train.train_and_evaluate(FLAGS.config, FLAGS.workdir)
