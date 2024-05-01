@@ -106,7 +106,7 @@ python3 main.py \
 
 This command can also be found in `run_script.sh`, which is what I use to run local dev jobs.
 
-**Note:** 
+**Note:**
 - `./imagenet_fake` contains just soft links to the `/kmh-nfs-us-mount/data/imagenet/val` dir: **both train and val in are validation sets**, only for fast debugging.
 - `_ResNet1` is a tiny ResNet for fast debugging.
 
@@ -115,6 +115,9 @@ The first few iterations of the log look like this:
 
 
 You can see that the speed is not ideal, even though we train a tiny `_ResNet1`. **Data loading time with Pytorch loader is a major bottleneck for small models** (including even ResNet-50, 101, 152; see below).
+
+**Note:**
+- [Current issue: May-01-2024] Due to unknown reasons, data loading in `v4-8` (`us-central2-b`) becomes extremely slow (`steps_per_second` is about 0.1). Please ignore this issue and go ahead to test `v3-32` with multi-node training.
 
 ### Run multi-node training
 
