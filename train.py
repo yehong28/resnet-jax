@@ -117,8 +117,13 @@ def create_learning_rate_fn(
   return schedule_fn
 
 
-def train_step(state, batch, learning_rate_fn):
+def train_step(state, batch, rng_init, learning_rate_fn):
   """Perform a single training step."""
+
+  # ResNet has no dropout; but maintain rng_dropout for future usage
+  rng_step = random.fold_in(rng_init, state.step)
+  rng_device = random.fold_in(rng_step, lax.axis_index(axis_name='batch'))
+  rng_dropout, _ = random.split(rng_device)
 
   def loss_fn(params):
     """loss function used for training."""
@@ -126,6 +131,7 @@ def train_step(state, batch, learning_rate_fn):
         {'params': params, 'batch_stats': state.batch_stats},
         batch['image'],
         mutable=['batch_stats'],
+        rngs=dict(dropout=rng_dropout),
     )
     loss = cross_entropy_loss(logits, batch['label'])
     weight_penalty_params = jax.tree_util.tree_leaves(params)
@@ -306,7 +312,7 @@ def train_and_evaluate(
   state = jax_utils.replicate(state)
 
   p_train_step = jax.pmap(
-      functools.partial(train_step, learning_rate_fn=learning_rate_fn),
+      functools.partial(train_step, rng_init=rng, learning_rate_fn=learning_rate_fn),
       axis_name='batch',
   )
   p_eval_step = jax.pmap(eval_step, axis_name='batch')
