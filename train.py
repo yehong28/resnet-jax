@@ -42,6 +42,7 @@ from input_pipeline import prepare_batch_data
 import models
 
 import utils.writer_util as writer_util  # must be after 'from clu import metric_writers'
+from utils.info_util import print_params
 
 
 NUM_CLASSES = 1000
@@ -68,6 +69,8 @@ def initialized(key, image_size, model):
 
   logging.info('Initializing params...')
   variables = init({'params': key}, jnp.ones(input_shape, model.dtype))
+  if 'batch_stats' not in variables:
+    variables['batch_stats'] = {}
   logging.info('Initializing params done.')
   return variables['params'], variables['batch_stats']
 
@@ -230,6 +233,9 @@ def create_train_state(
     dynamic_scale = None
 
   params, batch_stats = initialized(rng, image_size, model)
+  
+  print_params(params)
+
   tx = optax.sgd(
       learning_rate=learning_rate_fn,
       momentum=config.momentum,
