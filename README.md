@@ -15,7 +15,7 @@ PyTorch DataLoader
 
 ### Introduction
 
-Before you start, please read [He Vision Group's TPU documentation](https://docs.google.com/document/d/1khhWZW7VJ8HmrzaQIYcHRKlLygaeceHHLdWHoakwbdU/edit).
+Before you start, please read [He Vision Group's GCP/TPU Wiki](https://github.com/hevision/wiki_tpu).
 
 JAX and TPU are useful and great. But GCP (Google Cloud Platform) takes some time to learn. This tutorial will walk you through some basic concepts about JAX, TPU, and GCP.
 
@@ -23,7 +23,7 @@ JAX and TPU are useful and great. But GCP (Google Cloud Platform) takes some tim
 
 SSH into your TPU VM that has 8 TPUs (say, v4-8). Every 8 TPUs are in one node. Unlike PyTorch, in JAX, we only need one Python process per node. This **single-node** TPU VM works as your dev machine.
 
-If you have followed [He Vision Group's TPU documentation](https://docs.google.com/document/d/1khhWZW7VJ8HmrzaQIYcHRKlLygaeceHHLdWHoakwbdU/edit), you should be able to SSH into a TPU VM by running the following command in your **laptop**:
+If you have followed [He Vision Group's GCP/TPU Wiki](https://github.com/hevision/wiki_tpu), you should be able to SSH into a TPU VM by running the following command in your **laptop**:
 ```shell
 DEV_VM=kmh-tpuvm-v4-8-1
 ssh $DEV_VM
@@ -47,6 +47,8 @@ sudo chmod go+rw /kmh-nfs-us-mount
 ls /kmh-nfs-us-mount
 ```
 Here `/kmh-nfs-us-mount` is like a local dir that can be accessed from your TPU VM.
+
+**Note**: The actual name and address may change. Check the current ones in [this page](https://console.cloud.google.com/filestore/instances?referrer=search&project=he-vision-group)
 
 ### Mount NFS Filestore (*** with Pytorch Loader ***)
 
