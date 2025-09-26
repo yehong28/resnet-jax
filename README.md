@@ -52,15 +52,15 @@ Here `/kmh-nfs-us-mount` is like a local dir that can be accessed from your TPU 
 
 ### Mount NFS Filestore (*** with Pytorch Loader ***)
 
-To use Pytorch's dataloader, we need high-throughput SSD disk located in the same region as your TPU VMs. Mount the following SSD disk in `europe-west4-a` when you are using **TPU v3** machines for your remote jobs:
+To use Pytorch's dataloader, we need high-throughput SSD disk located in the same region as your TPU VMs. Mount the following SSD disk in `us-central2-b` when you are using **TPU v4** machines for your remote jobs:
 ```shell
-sudo mkdir -p /kmh-nfs-ssd-eu-mount
-sudo mount -o vers=3 10.150.179.250:/kmh_nfs_ssd_eu /kmh-nfs-ssd-eu-mount
-sudo chmod go+rw /kmh-nfs-ssd-eu-mount
-ls /kmh-nfs-ssd-eu-mount
+sudo mkdir -p /kmh-nfs-ssd-us-mount
+sudo mount -o vers=3 10.97.81.98:/kmh_nfs_ssd_us /kmh-nfs-ssd-us-mount
+sudo chmod go+rw /kmh-nfs-ssd-us-mount
+ls /kmh-nfs-ssd-us-mount
 ```
 
-The ImageNet dataset, in their per-image raw formats for Pytorch dataloader, is in `/kmh-nfs-ssd-eu-mount/data/imagenet`.
+The ImageNet dataset, in their per-image raw formats for Pytorch dataloader, is in `/kmh-nfs-ssd-us-mount/data/imagenet`.
 
 ### Manage your code
 
@@ -170,16 +170,16 @@ sudo chmod 777 /kmh-nfs-us-mount/staging/$USER
 ```
 Here, `logs` is the dir to the remote job's artifacts, and `staging` is the dir for staged (cached) **copies** of codes that wil be run in remote TPU VM.
 
-**Note:**
+<!-- **Note:**
 - You may notice that here the artifacts are in `/kmh-nfs-us-mount` (zone=`us`). In case you have big artifacts (e.g., very large checkpoints), you may want to use the mount in the same zone as your remote TPU VM (`/kmh-nfs-ssd-eu-mount` for TPU v3 in zone=`eu`):
 ```
 mkdir /kmh-nfs-ssd-eu-mount/logs/$USER/
 sudo chmod 777 /kmh-nfs-ssd-eu-mount/logs/$USER
-```
+``` -->
 
 
 #### Run a remote job
-
+  
 You may open `run_remote.sh` to see how a remote job is run. Conceptually, the essential part is (you don't need to run this line):
 ```
 gcloud compute tpus tpu-vm ssh $VM_NAME --zone $ZONE \
