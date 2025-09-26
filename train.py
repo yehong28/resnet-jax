@@ -36,6 +36,7 @@ import jax.numpy as jnp
 from jax import random
 import ml_collections
 import optax
+import os
 
 import input_pipeline
 from input_pipeline import prepare_batch_data
@@ -197,8 +198,18 @@ class TrainState(train_state.TrainState):
   batch_stats: Any
   dynamic_scale: dynamic_scale_lib.DynamicScale
 
+def convert_to_gs(path):
+  assert os.path.isabs(path), f'ckpt path {path} is not absolute.'
+  for k, v in {
+        '/kmh-nfs-ssd-us-mount': 'gs://kmh-gcp-us-central2/',
+        '/kmh-nfs-us-mount': 'gs://kmh-gcp-us-central2/',
+    }.items():
+    if path.startswith(k):
+      return path.replace(k, v)
+  return path
 
 def restore_checkpoint(state, workdir):
+  workdir = convert_to_gs(workdir)
   return checkpoints.restore_checkpoint(workdir, state)
 
 
@@ -206,7 +217,7 @@ def save_checkpoint(state, workdir):
   state = jax.device_get(jax.tree_util.tree_map(lambda x: x[0], state))
   step = int(state.step)
   logging.info('Saving checkpoint step %d.', step)
-  checkpoints.save_checkpoint_multiprocess(workdir, state, step, keep=2)
+  checkpoints.save_checkpoint_multiprocess(convert_to_gs(workdir), state, step, keep=2)
 
 
 # pmean only works inside pmap because it needs an axis name.
