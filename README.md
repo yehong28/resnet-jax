@@ -41,12 +41,12 @@ sudo apt-get -y install nfs-common
 ```
 Then you can mount a disk by:
 ```shell
-sudo mkdir -p /kmh-nfs-us-mount
-sudo mount -o vers=3 10.26.72.146:/kmh_nfs_us /kmh-nfs-us-mount
-sudo chmod go+rw /kmh-nfs-us-mount
-ls /kmh-nfs-us-mount
+sudo mkdir -p /kmh-nfs-ssd-us-mount
+sudo mount -o vers=3 10.97.81.98:/kmh_nfs_ssd_us /kmh-nfs-ssd-us-mount
+sudo chmod go+rw /kmh-nfs-ssd-us-mount
+ls /kmh-nfs-ssd-us-mount
 ```
-Here `/kmh-nfs-us-mount` is like a local dir that can be accessed from your TPU VM.
+Here `/kmh-nfs-ssd-us-mount` is like a local dir that can be accessed from your TPU VM.
 
 **Note**: The actual name and address may change. Check the current ones in [this page](https://console.cloud.google.com/filestore/instances?referrer=search&project=he-vision-group)
 
@@ -66,9 +66,9 @@ The ImageNet dataset, in their per-image raw formats for Pytorch dataloader, is 
 
 We recommend you to put your code in the NFS mount, not in the local TPU VM. Then your code can be run in different machines. Create a dir in the mount and clone this repo:
 ```
-sudo chmod go+rw /kmh-nfs-us-mount/code
-mkdir /kmh-nfs-us-mount/code/$USER/
-cd /kmh-nfs-us-mount/code/$USER/
+sudo chmod go+rw /kmh-nfs-ssd-us-mount/code
+mkdir /kmh-nfs-ssd-us-mount/code/$USER/
+cd /kmh-nfs-ssd-us-mount/code/$USER/
 git clone https://github.com/KaimingHe/resnet_jax.git
 cd resnet_jax
 ```
@@ -109,7 +109,7 @@ python3 main.py \
 This command can also be found in `run_script.sh`, which is what I use to run local dev jobs.
 
 **Note:**
-- `./imagenet_fake` contains just soft links to the `/kmh-nfs-us-mount/data/imagenet/val` dir: **both train and val in are validation sets**, only for fast debugging.
+- `./imagenet_fake` contains just soft links to the `/kmh-nfs-ssd-us-mount/data/imagenet/val` dir: **both train and val in are validation sets**, only for fast debugging.
 - `_ResNet1` is a tiny ResNet for fast debugging.
 
 The first few iterations of the log look like this:
@@ -163,15 +163,15 @@ The "remote" TPU VM is like your dev TPU VM. Conceptually, we need to run the sa
 
 In your **dev** TPU VM (say, `v4-8`), run:
 ```
-mkdir /kmh-nfs-us-mount/logs/$USER/
-mkdir /kmh-nfs-us-mount/staging/$USER/
-sudo chmod 777 /kmh-nfs-us-mount/logs/$USER
-sudo chmod 777 /kmh-nfs-us-mount/staging/$USER
+mkdir /kmh-nfs-ssd-us-mount/logs/$USER/
+mkdir /kmh-nfs-ssd-us-mount/staging/$USER/
+sudo chmod 777 /kmh-nfs-ssd-us-mount/logs/$USER
+sudo chmod 777 /kmh-nfs-ssd-us-mount/staging/$USER
 ```
 Here, `logs` is the dir to the remote job's artifacts, and `staging` is the dir for staged (cached) **copies** of codes that wil be run in remote TPU VM.
 
 <!-- **Note:**
-- You may notice that here the artifacts are in `/kmh-nfs-us-mount` (zone=`us`). In case you have big artifacts (e.g., very large checkpoints), you may want to use the mount in the same zone as your remote TPU VM (`/kmh-nfs-ssd-eu-mount` for TPU v3 in zone=`eu`):
+- You may notice that here the artifacts are in `/kmh-nfs-ssd-us-mount` (zone=`us`). In case you have big artifacts (e.g., very large checkpoints), you may want to use the mount in the same zone as your remote TPU VM (`/kmh-nfs-ssd-eu-mount` for TPU v3 in zone=`eu`):
 ```
 mkdir /kmh-nfs-ssd-eu-mount/logs/$USER/
 sudo chmod 777 /kmh-nfs-ssd-eu-mount/logs/$USER
@@ -187,7 +187,7 @@ gcloud compute tpus tpu-vm ssh $VM_NAME --zone $ZONE \
 ```
 Here, `--worker=all` means the same command `python3 main.py` will be run in all nodes.
 
-The file `run_remote.sh` alone does not take effect; instead, we use `run_staging.sh` to kick off a remote job. You may open `run_staging.sh` and see the process. Basicall, it will copy the current repo dir (in you dev TPU VM) to a hashed dir in `/kmh-nfs-us-mount/staging/$USER/` and `cd` into it, then it will run the `run_remote.sh` file in the staging dir.
+The file `run_remote.sh` alone does not take effect; instead, we use `run_staging.sh` to kick off a remote job. You may open `run_staging.sh` and see the process. Basicall, it will copy the current repo dir (in you dev TPU VM) to a hashed dir in `/kmh-nfs-ssd-us-mount/staging/$USER/` and `cd` into it, then it will run the `run_remote.sh` file in the staging dir.
 
 In sum, you only need to run `run_staging.sh` in your **dev** TPU VM by:
 ```
@@ -199,7 +199,7 @@ The following is the beginning of the output you may see:
 ```
 Staging files...
 Done staging.
-Current dir: /kmh-nfs-us-mount/staging/kaiminghe/240419000859-u1fe8t-2df5ac0-code
+Current dir: /kmh-nfs-ssd-us-mount/staging/kaiminghe/240419000859-u1fe8t-2df5ac0-code
 kmh-tpuvm-v3-32-2 europe-west4-a
 Log dir: /kmh-nfs-ssd-eu-mount/logs/kaiminghe/resnet/20240419_000859_d4awst_kmh-tpuvm-v3-32-2_tpu_b1024_lr0.1_ep100_torchvision_ep1000x
 Using ssh batch size of 1. Attempting to SSH into 1 nodes with a total of 4 workers.
@@ -207,10 +207,10 @@ SSH: Attempting to connect to worker 0...
 SSH: Attempting to connect to worker 1...
 SSH: Attempting to connect to worker 2...
 SSH: Attempting to connect to worker 3...
-Current dir: /kmh-nfs-us-mount/staging/kaiminghe/240419000859-u1fe8t-2df5ac0-code
-Current dir: /kmh-nfs-us-mount/staging/kaiminghe/240419000859-u1fe8t-2df5ac0-code
-Current dir: /kmh-nfs-us-mount/staging/kaiminghe/240419000859-u1fe8t-2df5ac0-code
-Current dir: /kmh-nfs-us-mount/staging/kaiminghe/240419000859-u1fe8t-2df5ac0-code
+Current dir: /kmh-nfs-ssd-us-mount/staging/kaiminghe/240419000859-u1fe8t-2df5ac0-code
+Current dir: /kmh-nfs-ssd-us-mount/staging/kaiminghe/240419000859-u1fe8t-2df5ac0-code
+Current dir: /kmh-nfs-ssd-us-mount/staging/kaiminghe/240419000859-u1fe8t-2df5ac0-code
+Current dir: /kmh-nfs-ssd-us-mount/staging/kaiminghe/240419000859-u1fe8t-2df5ac0-code
 ```
 
 #### Cancel a remote job (NOTE: NOT DELETING TPU VM)
