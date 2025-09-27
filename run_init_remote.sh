@@ -1,7 +1,11 @@
 # initialize and set up remote TPU VM
 
-VM_NAME=kmh-tpuvm-v3-32-2
-ZONE=europe-west4-a  # v3
+# v3 VMs are deprecated
+# VM_NAME=kmh-tpuvm-v3-32-2
+# ZONE=europe-west4-a  # v3
+
+VM_NAME=kmh-tpuvm-v4-32
+ZONE=us-central2-b # v4
 
 # install packages
 gcloud compute tpus tpu-vm ssh $VM_NAME --zone $ZONE \
@@ -40,9 +44,9 @@ sudo mount -o vers=3 10.26.72.146:/kmh_nfs_us /kmh-nfs-us-mount
 sudo chmod go+rw /kmh-nfs-us-mount
 ls /kmh-nfs-us-mount
 
-sudo mkdir -p /kmh-nfs-ssd-eu-mount
-sudo mount -o vers=3 10.150.179.250:/kmh_nfs_ssd_eu /kmh-nfs-ssd-eu-mount
-sudo chmod go+rw /kmh-nfs-ssd-eu-mount
-ls /kmh-nfs-ssd-eu-mount
+sudo mkdir -p /kmh-nfs-ssd-us-mount
+sudo mount -o vers=3 10.97.81.98:/kmh_nfs_ssd_us /kmh-nfs-ssd-us-mount
+sudo chmod go+rw /kmh-nfs-ssd-us-mount
+ls /kmh-nfs-ssd-us-mount
 
 "

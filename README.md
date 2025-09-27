@@ -30,7 +30,7 @@ ssh $DEV_VM
 ```
 Here `kmh-tpuvm-v4-8-1` is the TPU VM's name. In the following, we assume you are already in your dev TPU VM.
 
-Check this "[manual SLRUM](https://docs.google.com/spreadsheets/d/1vDpP7eTkYRwWYs2fo-9dJwxHKvN6SDp5iC1cM1H3FDU/edit?usp=sharing)" spreadsheet for available TPU VMs.
+**Please check this "[manual SLRUM](https://docs.google.com/spreadsheets/d/1vDpP7eTkYRwWYs2fo-9dJwxHKvN6SDp5iC1cM1H3FDU/edit?usp=sharing)" spreadsheet for available TPU VMs. Do NOT use other people's TPU VM, as it may cause conflict in TPU using** (see [issues](#tpu-is-in-use)).
 
 ### Mount NFS Filestore
 
@@ -41,12 +41,12 @@ sudo apt-get -y install nfs-common
 ```
 Then you can mount a disk by:
 ```shell
-sudo mkdir -p /kmh-nfs-ssd-us-mount
-sudo mount -o vers=3 10.97.81.98:/kmh_nfs_ssd_us /kmh-nfs-ssd-us-mount
-sudo chmod go+rw /kmh-nfs-ssd-us-mount
-ls /kmh-nfs-ssd-us-mount
+sudo mkdir -p /kmh-nfs-us-mount
+sudo mount -o vers=3 10.26.72.146:/kmh_nfs_us /kmh-nfs-us-mount
+sudo chmod go+rw /kmh-nfs-us-mount
+ls /kmh-nfs-us-mount
 ```
-Here `/kmh-nfs-ssd-us-mount` is like a local dir that can be accessed from your TPU VM.
+Here `/kmh-nfs-us-mount` is like a local dir that can be accessed from your TPU VM.
 
 **Note**: The actual name and address may change. Check the current ones in [this page](https://console.cloud.google.com/filestore/instances?referrer=search&project=he-vision-group)
 
@@ -66,9 +66,9 @@ The ImageNet dataset, in their per-image raw formats for Pytorch dataloader, is 
 
 We recommend you to put your code in the NFS mount, not in the local TPU VM. Then your code can be run in different machines. Create a dir in the mount and clone this repo:
 ```
-sudo chmod go+rw /kmh-nfs-ssd-us-mount/code
-mkdir /kmh-nfs-ssd-us-mount/code/$USER/
-cd /kmh-nfs-ssd-us-mount/code/$USER/
+sudo chmod go+rw /kmh-nfs-us-mount/code
+mkdir /kmh-nfs-us-mount/code/$USER/
+cd /kmh-nfs-us-mount/code/$USER/
 git clone https://github.com/KaimingHe/resnet_jax.git
 cd resnet_jax
 ```
@@ -109,7 +109,7 @@ python3 main.py \
 This command can also be found in `run_script.sh`, which is what I use to run local dev jobs.
 
 **Note:**
-- `./imagenet_fake` contains just soft links to the `/kmh-nfs-ssd-us-mount/data/imagenet/val` dir: **both train and val in are validation sets**, only for fast debugging.
+- `./imagenet_fake` contains just soft links to the `/kmh-nfs-us-mount/data/imagenet/val` dir: **both train and val in are validation sets**, only for fast debugging.
 - `_ResNet1` is a tiny ResNet for fast debugging.
 
 The first few iterations of the log look like this:
@@ -123,10 +123,10 @@ You can see that the speed is not ideal, even though we train a tiny `_ResNet1`.
 
 #### Concept
 
-Any TPU VM with more than 8 TPUs is conceptually a multi-node machine. For example, `v3-32` is conceptually 4 nodes, and we will do the same thing for each node. To have some sense of it, run the following:
+Any TPU VM with more than 8 TPUs is conceptually a multi-node machine. For example, `v4-32` is conceptually 4 nodes, and we will do the same thing for each node. To have some sense of it, run the following:
 ```
-VM_NAME=kmh-tpuvm-v3-32-1
-ZONE=europe-west4-a
+VM_NAME=kmh-tpuvm-v4-32-1
+ZONE=us-central2-b
 
 gcloud compute tpus tpu-vm ssh $VM_NAME --zone $ZONE \
 --worker=all --command "echo HelloWorld"
@@ -145,14 +145,14 @@ HelloWorld
 ```
 
 **Note:**
-- When you run this demo, make sure `kmh-tpuvm-v3-32-1` is available.
+- When you run this demo, make sure `kmh-tpuvm-v4-32-1` is available.
 
 
 #### Install packages in remote nodes
 
 We need to install all packages and mount NFS in our remote TPU VM:
 
-Open `run_init_remote.sh`, change `VM_NAME` and `ZONE` into your remote TPU VM, say: `VM_NAME=kmh-tpuvm-v3-32-1` and ` ZONE=europe-west4-a`.
+Open `run_init_remote.sh`, change `VM_NAME` and `ZONE` into your remote TPU VM, say: `VM_NAME=kmh-tpuvm-v4-32-1` and ` ZONE=us-central2-b`.
 
 Then run `source run_init_remote.sh`. This will install packages and mount NFS in the remote TPU VM.
 
@@ -163,10 +163,10 @@ The "remote" TPU VM is like your dev TPU VM. Conceptually, we need to run the sa
 
 In your **dev** TPU VM (say, `v4-8`), run:
 ```
-mkdir /kmh-nfs-ssd-us-mount/logs/$USER/
-mkdir /kmh-nfs-ssd-us-mount/staging/$USER/
-sudo chmod 777 /kmh-nfs-ssd-us-mount/logs/$USER
-sudo chmod 777 /kmh-nfs-ssd-us-mount/staging/$USER
+mkdir /kmh-nfs-us-mount/logs/$USER/
+mkdir /kmh-nfs-us-mount/staging/$USER/
+sudo chmod 777 /kmh-nfs-us-mount/logs/$USER
+sudo chmod 777 /kmh-nfs-us-mount/staging/$USER
 ```
 Here, `logs` is the dir to the remote job's artifacts, and `staging` is the dir for staged (cached) **copies** of codes that wil be run in remote TPU VM.
 
@@ -187,7 +187,7 @@ gcloud compute tpus tpu-vm ssh $VM_NAME --zone $ZONE \
 ```
 Here, `--worker=all` means the same command `python3 main.py` will be run in all nodes.
 
-The file `run_remote.sh` alone does not take effect; instead, we use `run_staging.sh` to kick off a remote job. You may open `run_staging.sh` and see the process. Basicall, it will copy the current repo dir (in you dev TPU VM) to a hashed dir in `/kmh-nfs-ssd-us-mount/staging/$USER/` and `cd` into it, then it will run the `run_remote.sh` file in the staging dir.
+The file `run_remote.sh` alone does not take effect; instead, we use `run_staging.sh` to kick off a remote job. You may open `run_staging.sh` and see the process. Basicall, it will copy the current repo dir (in you dev TPU VM) to a hashed dir in `/kmh-nfs-us-mount/staging/$USER/` and `cd` into it, then it will run the `run_remote.sh` file in the staging dir.
 
 In sum, you only need to run `run_staging.sh` in your **dev** TPU VM by:
 ```
@@ -239,6 +239,9 @@ In your TPU VM, run the following:
 tensorboard --port=6060 --logdir_spec=\
 v3-32-2_tpu_b1024_lr0.1_ep100_torchvision:/kmh-nfs-ssd-eu-mount/logs/kaiminghe/resnet/20240419_020919_nevsyj_kmh-tpuvm-v3-32-2_tpu_b1024_lr0.1_ep100_torchvision
 ```
+
+(Notes: this log file no longer exists, hence the command above will raise an error. Same as the `tensorboard` command below.)
+
 Then open `http://localhost:6060/#scalars` in your laptop. You can see the tensorboard profile:
 
 <img width="587" src="https://github.com/KaimingHe/deep-residual-networks/assets/11435359/39829a1f-6258-4062-aed3-71fdc88891f5">
@@ -278,3 +281,108 @@ When using the same random seed, the same versions of packages, and the same hyp
 Below are the training loss curves of two jobs. They are exactly the same. Even the running time is very similar.
 
 <img width="1159" src="https://github.com/KaimingHe/deep-residual-networks/assets/11435359/b9a58d7d-69cd-45b8-b419-79eda6a0b062">
+
+## Issues
+
+### TPU Is In Use
+
+Unlike PyTorch+GPU, in JAX+TPU, on one TPU VM there can be **at most one program among all users** that is using the TPU. You may encounter error message like these:
+
+- error message type 1:
+  ```
+  Traceback (most recent call last):
+    File "/usr/lib/python3.10/site-packages/jax/_src/xla_bridge.py", line 886, in backends
+      backend = _init_backend(platform)
+    File "/usr/lib/python3.10/site-packages/jax/_src/xla_bridge.py", line 977, in _init_backend
+      backend = registration.factory()
+    File "/usr/lib/python3.10/site-packages/jax/_src/xla_bridge.py", line 164, in tpu_client_timer_callback
+      client = xla_client.make_tpu_client(_get_tpu_library_path())
+    File "/usr/lib/python3.10/site-packages/jaxlib/xla_client.py", line 207, in make_tpu_client
+      return make_tfrt_tpu_c_api_client()
+    File "/usr/lib/python3.10/site-packages/jaxlib/xla_client.py", line 128, in make_tfrt_tpu_c_api_client
+      initialize_pjrt_plugin('tpu')
+    File "/usr/lib/python3.10/site-packages/jaxlib/xla_client.py", line 176, in initialize_pjrt_plugin
+      _xla.initialize_pjrt_plugin(plugin_name)
+  jaxlib.xla_extension.XlaRuntimeError: ABORTED: The TPU is already in use by another process probably owned by another user. Run "$ sudo lsof -w /dev/accel0" to figure out which process is using the TPU. If you still get this message, run "$ sudo rm /tmp/libtpu_lockfile".
+
+  During handling of the above exception, another exception occurred:
+
+  Traceback (most recent call last):
+    File "<string>", line 1, in <module>
+    File "/usr/lib/python3.10/site-packages/jax/_src/xla_bridge.py", line 1089, in devices
+      return get_backend(backend).devices()
+    File "/usr/lib/python3.10/site-packages/jax/_src/xla_bridge.py", line 1023, in get_backend
+      return _get_backend_uncached(platform)
+    File "/usr/lib/python3.10/site-packages/jax/_src/xla_bridge.py", line 1002, in _get_backend_uncached
+      bs = backends()
+    File "/usr/lib/python3.10/site-packages/jax/_src/xla_bridge.py", line 902, in backends
+      raise RuntimeError(err_msg)
+  RuntimeError: Unable to initialize backend 'tpu': ABORTED: The TPU is already in use by another process probably owned by another user. Run "$ sudo lsof -w /dev/accel0" to figure out which process is using the TPU. If you still get this message, run "$ sudo rm /tmp/libtpu_lockfile". (set JAX_PLATFORMS='' to automatically choose an available backend)
+  ```
+  which implies that **another person** is using the TPU VM;
+
+- error message type 2:
+  ```
+  Traceback (most recent call last):
+  File "/usr/lib/python3.10/site-packages/jax/_src/xla_bridge.py", line 886, in backends
+    backend = _init_backend(platform)
+  File "/usr/lib/python3.10/site-packages/jax/_src/xla_bridge.py", line 977, in _init_backend
+    backend = registration.factory()
+  File "/usr/lib/python3.10/site-packages/jax/_src/xla_bridge.py", line 164, in tpu_client_timer_callback
+    client = xla_client.make_tpu_client(_get_tpu_library_path())
+  File "/usr/lib/python3.10/site-packages/jaxlib/xla_client.py", line 207, in make_tpu_client
+    return make_tfrt_tpu_c_api_client()
+  File "/usr/lib/python3.10/site-packages/jaxlib/xla_client.py", line 128, in make_tfrt_tpu_c_api_client
+    initialize_pjrt_plugin('tpu')
+  File "/usr/lib/python3.10/site-packages/jaxlib/xla_client.py", line 176, in initialize_pjrt_plugin
+    _xla.initialize_pjrt_plugin(plugin_name)
+  jaxlib.xla_extension.XlaRuntimeError: ABORTED: The TPU is already in use by process with pid 2239507. Not attempting to load libtpu.so in this process.
+
+  During handling of the above exception, another exception occurred:
+
+  Traceback (most recent call last):
+    File "<string>", line 1, in <module>
+    File "/usr/lib/python3.10/site-packages/jax/_src/xla_bridge.py", line 1089, in devices
+      return get_backend(backend).devices()
+    File "/usr/lib/python3.10/site-packages/jax/_src/xla_bridge.py", line 1023, in get_backend
+      return _get_backend_uncached(platform)
+    File "/usr/lib/python3.10/site-packages/jax/_src/xla_bridge.py", line 1002, in _get_backend_uncached
+      bs = backends()
+    File "/usr/lib/python3.10/site-packages/jax/_src/xla_bridge.py", line 902, in backends
+      raise RuntimeError(err_msg)
+  RuntimeError: Unable to initialize backend 'tpu': ABORTED: The TPU is already in use by process with pid 2239507. Not attempting to load libtpu.so in this process. (set JAX_PLATFORMS='' to automatically choose an available backend)
+  ```
+  which implies that **your another process** is using the TPU VM.
+
+- error message type 3:
+  ```
+  Could not open the log file '/tmp/tpu_logs/tpu_driver.t1v-n-d0a278b1-w-0.zhh.log.INFO.20250927-192806.2244481': Permission denied
+  Could not open any log file.
+  (... Usually repeated many times ...)
+  ```
+  which implies that **although TPU is not in use, someone else has used it in the past, leading you to lose the permission of the TPU log files**. In such case, your code will not fail; instead it will run gracefully, only the output will be polluted by these messages.
+
+#### Handling the Problems
+
+- ⚠️⚠️⚠️ Before doing **anything**, please **check the manual slurm page [here](https://docs.google.com/spreadsheets/d/1vDpP7eTkYRwWYs2fo-9dJwxHKvN6SDp5iC1cM1H3FDU/edit?usp=sharing) to make sure you have ssh'ed into your own VM**. ⚠️⚠️⚠️
+- ⚠️⚠️⚠️ In **case 1 and 2**, **DO NOT** directly run the suggested command `sudo rm /tmp/libtpu_lockfile`, or kill the PID provided (in error message type 2). As the TPU is shared among users, doing this **may kill the program that other people is running**.
+
+  Instead, first use `sudo lsof -w /dev/accel0` to find out who and what process is using the TPU (the user is displayed in the output), and contact the relevant people.
+- In **case 1 and 2**, once you are sure that you can kill the program (i.e. get the permission of the owner, or it is program run by yourself), you can do **either** of the two:
+  - kill the program (**preferred**): `sudo kill -9 <PID>`
+  - run:
+    ```shell
+    sudo rm /tmp/libtpu_lockfile
+    sudo rm -rf /tmp/tpu_logs
+    ```
+  
+  The difference: the first method kills the program elegantly; the second make the program lose the access to TPU, hence it may fail, but anyway it can't be using the TPU anymore (so you can use it).
+- In **case 3**, just run
+  ```shell
+  sudo rm -rf /tmp/tpu_logs
+  ```
+  Alternatively, you may use
+  ```shell
+  your_command 2>&1 | grep -v Could
+  ```
+  which will not cause any real changes(as mentioned, in case 3 there is no problem with the program; it is just the output is polluted).
