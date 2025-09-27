@@ -240,12 +240,11 @@ tensorboard --port=6060 --logdir_spec=\
 v3-32-2_tpu_b1024_lr0.1_ep100_torchvision:/kmh-nfs-ssd-eu-mount/logs/kaiminghe/resnet/20240419_020919_nevsyj_kmh-tpuvm-v3-32-2_tpu_b1024_lr0.1_ep100_torchvision
 ```
 
-(Notes: this log file no longer exists, hence the command above will raise an error. Same as the `tensorboard` command below.)
-
 Then open `http://localhost:6060/#scalars` in your laptop. You can see the tensorboard profile:
 
 <img width="587" src="https://github.com/KaimingHe/deep-residual-networks/assets/11435359/39829a1f-6258-4062-aed3-71fdc88891f5">
 
+(Notes: now, since the path `/kmh-nfs-ssd-eu-mount` no longer exists, the website will show "No dashboards are active for the current data set". Same as the run below.)
 
 **Note:**
 - Here, the metrics starting with `ep_` will have `epochs` (x1000) as the x-axis. For example, x-axis with 100k just means 100 epochs. This is useful for calibrating different runs with different batch sizes. 
@@ -386,3 +385,8 @@ Unlike PyTorch+GPU, in JAX+TPU, on one TPU VM there can be **at most one program
   your_command 2>&1 | grep -v Could
   ```
   which will not cause any real changes(as mentioned, in case 3 there is no problem with the program; it is just the output is polluted).
+- It may also be the case that you can't use the TPU (others is use it). However, you can still **debug** your code using CPU:
+  ```shell
+  JAX_PLATFORMS=cpu python your_program.py
+  ```
+  Using cpu to debug the code can be much efficient.
