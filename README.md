@@ -79,6 +79,7 @@ cd resnet_jax
 Run `pip install -r requirements.txt` to install the minimal requirements.
 
 - torch, torchvision
+- tensorflow-datasets (required for TFDS/GCS datasets)
 - [2024.4] ml_collections not working with Python>=3.12 (imp deprecated): https://github.com/google/ml_collections/pull/28. To fix this problem, install ml_collections from:
   ```
   pip install git+https://github.com/danielkelshaw/ml_collections.git
@@ -94,11 +95,14 @@ It should output `4` for TPU v4-8 (or `8` for TPU v3-8). If you are waiting fore
 
 Now, run a single-node training:
 ```shell
+export TFDS_DATA_DIR='gs://kmh-gcp-us-central2/tensorflow_datasets'
 PWD=$(pwd)
 python3 main.py \
     --workdir=${PWD}/tmp --config=configs/tpu.py \
     --config.dataset.cache=True \
-    --config.dataset.root=./imagenet_fake \
+    --config.dataset.use_tfds=True \
+    --config.dataset.name=imagenet_fake \
+    --config.dataset.root='gs://kmh-gcp-us-central2/tensorflow_datasets/imagenet_fake' \
     --config.batch_size=1024 \
     --config.dataset.prefetch_factor=2 \
     --config.dataset.num_workers=32 \
@@ -109,7 +113,8 @@ python3 main.py \
 This command can also be found in `run_script.sh`, which is what I use to run local dev jobs.
 
 **Note:**
-- `./imagenet_fake` contains just soft links to the `/kmh-nfs-us-mount/data/imagenet/val` dir: **both train and val in are validation sets**, only for fast debugging.
+- `TFDS_DATA_DIR` points to the base TFDS bucket; `dataset.root` may point to the dataset subdir and will be normalized.
+- `imagenet_fake` is a small TFDS dataset for fast debugging.
 - `_ResNet1` is a tiny ResNet for fast debugging.
 
 The first few iterations of the log look like this:
