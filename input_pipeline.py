@@ -17,6 +17,7 @@
 import numpy as np
 import os
 import random
+import time
 import jax
 import torch
 from torch.utils.data import DataLoader, default_collate
@@ -96,8 +97,14 @@ def create_split(
   """
   rank = jax.process_index()
   if split == 'train':
+    split_path = os.path.join(dataset_cfg.root, split)
+    print(
+        f'Starting ImageFolder scan for {split} at {time.time():.3f}',
+        flush=True,
+    )
+    start_t = time.time()
     ds = datasets.ImageFolder(
-      os.path.join(dataset_cfg.root, split),
+      split_path,
       transform=transforms.Compose([
         transforms.RandomResizedCrop(IMAGE_SIZE, interpolation=3),
         transforms.RandomHorizontalFlip(),
@@ -105,6 +112,11 @@ def create_split(
         transforms.Normalize(mean=MEAN_RGB, std=STDDEV_RGB),
       ]),
       loader=loader,
+    )
+    print(
+        f'Finished ImageFolder scan for {split} at {time.time():.3f} '
+        f'({time.time() - start_t:.1f}s)',
+        flush=True,
     )
     logging.info(ds)
     sampler = DistributedSampler(
@@ -124,8 +136,14 @@ def create_split(
     )
     steps_per_epoch = len(it)
   elif split == 'val':
+    split_path = os.path.join(dataset_cfg.root, split)
+    print(
+        f'Starting ImageFolder scan for {split} at {time.time():.3f}',
+        flush=True,
+    )
+    start_t = time.time()
     ds = datasets.ImageFolder(
-      os.path.join(dataset_cfg.root, split),
+      split_path,
       transform=transforms.Compose([
         transforms.Resize(IMAGE_SIZE + CROP_PADDING, interpolation=3),
         transforms.CenterCrop(IMAGE_SIZE),
@@ -133,6 +151,11 @@ def create_split(
         transforms.Normalize(mean=MEAN_RGB, std=STDDEV_RGB),
       ]),
       loader=loader,
+    )
+    print(
+        f'Finished ImageFolder scan for {split} at {time.time():.3f} '
+        f'({time.time() - start_t:.1f}s)',
+        flush=True,
     )
     logging.info(ds)
     '''

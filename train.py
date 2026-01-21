@@ -37,6 +37,10 @@ from jax import random
 import ml_collections
 import optax
 import os
+try:
+  from tqdm import tqdm
+except ImportError:  # pragma: no cover - optional dependency
+  tqdm = None
 
 import input_pipeline
 from input_pipeline import prepare_batch_data
@@ -344,7 +348,16 @@ def train_and_evaluate(
     if jax.process_count() > 1:
       train_loader.sampler.set_epoch(epoch)
     logging.info('epoch {}...'.format(epoch))
-    for n_batch, batch in enumerate(train_loader):
+    train_iter = train_loader
+    if tqdm is not None and jax.process_index() == 0:
+      train_iter = tqdm(
+          train_loader,
+          total=steps_per_epoch,
+          desc=f'train epoch {epoch}',
+          leave=False,
+          mininterval=5,
+      )
+    for n_batch, batch in enumerate(train_iter):
       step = epoch * steps_per_epoch + n_batch
       batch = prepare_batch_data(batch)
       state, metrics = p_train_step(state, batch)
@@ -386,7 +399,16 @@ def train_and_evaluate(
       eval_metrics = []
       # sync batch statistics across replicas
       state = sync_batch_stats(state)
-      for n_eval_batch, eval_batch in enumerate(eval_loader):
+      eval_iter = eval_loader
+      if tqdm is not None and jax.process_index() == 0:
+        eval_iter = tqdm(
+            eval_loader,
+            total=steps_per_eval,
+            desc=f'eval epoch {epoch}',
+            leave=False,
+            mininterval=5,
+        )
+      for n_eval_batch, eval_batch in enumerate(eval_iter):
         if (n_eval_batch + 1) % config.log_per_step == 0:
           logging.info('eval: {}/{}'.format(n_eval_batch + 1, steps_per_eval))
         eval_batch = prepare_batch_data(eval_batch, local_batch_size)
