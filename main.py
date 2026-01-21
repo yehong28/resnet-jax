@@ -17,21 +17,29 @@
 This file is intentionally kept short. The majority for logic is in libraries
 that can be easily tested and imported in Colab.
 """
-
+print("starting main", flush=True)
 import os
+import time
+print(time.time(), "os", flush=True)
 from absl import app
+print(time.time(), "absl-app", flush=True)
 from absl import flags
+print(time.time(), "absl-flags", flush=True)
 from absl import logging
+print(time.time(), "absl", flush=True)
 from clu import platform
+print(time.time(), "clu", flush=True)
 import jax
+print(time.time(), "jax", flush=True)
 from ml_collections import config_flags
-
+print("ml collections", time.time(), flush=True)
 import train
+print("train", time.time(), flush=True)
 from utils import logging_util
-
+print("utils", time.time(), flush=True)
 import warnings
+print("imports", time.time(), flush=True)
 warnings.filterwarnings("ignore")
-
 
 FLAGS = flags.FLAGS
 

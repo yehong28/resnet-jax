@@ -201,8 +201,8 @@ class TrainState(train_state.TrainState):
 def convert_to_gs(path):
   assert os.path.isabs(path), f'ckpt path {path} is not absolute.'
   for k, v in {
-        '/kmh-nfs-ssd-us-mount': 'gs://kmh-gcp-us-central2/',
-        '/kmh-nfs-us-mount': 'gs://kmh-gcp-us-central2/',
+        '/kmh-nfs-ssd-us-mount': 'gs://kmh-gcp-us-central1/',
+        '/kmh-nfs-us-mount': 'gs://kmh-gcp-us-central1/',
     }.items():
     if path.startswith(k):
       return path.replace(k, v)
