@@ -15,6 +15,8 @@
 """ImageFolder loader smoke test for ImageNet."""
 
 import time
+print('import starting')
+_IMPORT_START = time.time()
 import warnings
 
 from absl import app
@@ -26,6 +28,10 @@ from ml_collections import config_flags
 
 import input_pipeline
 from utils import logging_util
+
+_IMPORT_DURATION = time.time() - _IMPORT_START
+print('import done')
+print(f'import took {_IMPORT_DURATION:.3f}s')
 
 
 warnings.filterwarnings("ignore")
