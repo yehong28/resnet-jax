@@ -5,7 +5,7 @@ set -euo pipefail
 rm -rf tmp
 
 
-export TFDS_DATA_DIR='gs://kmh-gcp-us-central2/tensorflow_datasets'
+export TFDS_DATA_DIR='gs://kmh-gcp-us-central1/tensorflow_datasets'
 
 PWD=$(pwd)
 python3 main.py \
@@ -14,7 +14,7 @@ python3 main.py \
     --config.dataset.cache=True \
     --config.dataset.use_tfds=True \
     --config.dataset.name=imagenet_fake \
-    --config.dataset.root='gs://kmh-gcp-us-central2/tensorflow_datasets/imagenet_fake' \
+    --config.dataset.root='gs://kmh-gcp-us-central1/tensorflow_datasets/imagenet_fake_fake' \
     --config.batch_size=1024 \
     --config.dataset.prefetch_factor=2 \
     --config.dataset.num_workers=32 \
