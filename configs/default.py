@@ -45,6 +45,8 @@ def get_config():
   dataset.prefetch_factor = 2
   dataset.pin_memory = False
   dataset.cache = False
+  dataset.use_tfds = False
+  dataset.tfds_data_dir = None
 
   # Training
   config.learning_rate = 0.1
@@ -53,6 +55,7 @@ def get_config():
   config.batch_size = 128
   config.shuffle_buffer_size = 16 * 128
   config.prefetch = 10
+  dataset.shuffle_buffer_size = config.shuffle_buffer_size
 
   config.num_epochs = 100
   config.log_per_step = 100
