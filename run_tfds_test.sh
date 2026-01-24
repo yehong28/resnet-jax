@@ -1,4 +1,4 @@
-# Run ImageFolder test in a remote TPU VM
+# Run TFDS test in a remote TPU VM
 
 # v2, v3 VMs are deprecated
 # VM_NAME=kmh-tpuvm-v3-32-3
@@ -24,11 +24,12 @@ gcloud compute tpus tpu-vm ssh $VM_NAME --zone $ZONE \
 cd $STAGEDIR/resnet-jax
 echo Current dir: $(pwd)
 export MPLCONFIGDIR=mlp_cache
-$PYTHON imagefolder_test.py \
-        --debug=False \
-        --workdir=${LOGDIR} --config=configs/${CONFIG}.py \
-        --config.dataset.use_tfds=False \
-        --config.dataset.root='/kmh-nfs-us-mount/data/imagenet' \
+export TFDS_DATA_DIR='gs://kmh-gcp-us-central1/tensorflow_datasets'
+$PYTHON tfds_test.py \
+        --config=configs/${CONFIG}.py \
+        --config.dataset.use_tfds=True \
+        --config.dataset.name=imagenet_fake_fake \
+        --config.dataset.root='gs://kmh-gcp-us-central1/tensorflow_datasets/' \
         --config.batch_size=${batch} \
         --config.dataset.prefetch_factor=2 \
         --config.dataset.num_workers=32
