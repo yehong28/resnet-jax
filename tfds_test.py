@@ -15,14 +15,18 @@
 """TFDS loader smoke test for ImageNet."""
 
 import time
-
+start = time.time()
+print("start imports", flush=True)
 from absl import app
 from absl import flags
+print("absl", flush=True)
 import jax
+print("ajx", flush=True)
 from ml_collections import config_flags
+print(f"done={time.time()-start}", flush=True)
 
 import input_pipeline
-
+print(f"ez",flush=True)
 
 FLAGS = flags.FLAGS
 
